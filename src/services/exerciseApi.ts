@@ -2,7 +2,7 @@ import type { Exercise } from "@/types";
 
 const BASE = "https://oss.exercisedb.dev/api/v1/exercises";
 const TIMEOUT_MS = 15000;
-const MAX_PAGES = 8; // up to ~800 exercises then we pick 150
+const MAX_PAGES = 15; // up to ~1500 exercises, then we pick 350
 
 interface ApiResponse {
   success: boolean;
