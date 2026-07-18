@@ -1,19 +1,33 @@
 import type { Exercise } from "@/types";
 import { categoryOf } from "@/data/translations";
 
-// Approximate quotas summing to 150 (uses ExerciseDB coarse bodyParts)
+// Approximate quotas summing to 350 (uses ExerciseDB coarse bodyParts)
 const QUOTAS: Record<string, number> = {
-  Peitoral: 16,
-  Costas: 20,
-  Ombros: 15,
-  Braços: 25, // biceps + triceps + forearms lumped by API into "upper arms"/"lower arms"
-  Antebraços: 5,
-  Pernas: 34, // quads+hamstrings+glutes lumped in "upper legs"
-  Panturrilhas: 7,
-  "Abdômen e core": 15,
-  Condicionamento: 8,
-  Outros: 5,
+  Peitoral: 38,
+  Costas: 48,
+  Ombros: 34,
+  Braços: 58, // biceps + triceps lumped by API into "upper arms"
+  Antebraços: 12,
+  Pernas: 78, // quads+hamstrings+glutes lumped in "upper legs"
+  Panturrilhas: 16,
+  "Abdômen e core": 36,
+  Condicionamento: 18,
+  Outros: 12,
 };
+
+// Beginner-friendly keywords: boost common, easy-to-execute movements
+const BEGINNER_KEYWORDS = [
+  "dumbbell", "machine", "cable", "bodyweight", "body weight",
+  "press", "row", "curl", "extension", "raise", "squat", "lunge",
+  "push-up", "push up", "pull-down", "pulldown", "plank", "bridge",
+  "crunch", "sit-up", "sit up", "leg press", "chest press", "shoulder press",
+  "goblet", "hip thrust", "calf raise", "lateral raise", "front raise",
+];
+const ADVANCED_KEYWORDS = [
+  "olympic", "snatch", "clean and jerk", "muscle-up", "muscle up",
+  "planche", "pistol", "handstand", "one arm", "one-arm", "one leg",
+  "one-leg", "archer", "reverse hyper", "jefferson", "zercher",
+];
 
 function normalizeName(s: string) {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
