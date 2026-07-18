@@ -1,13 +1,35 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Circle, Repeat, Timer, Info, RefreshCw, Play, Pause, Plus, Download } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Repeat,
+  Timer,
+  Info,
+  RefreshCw,
+  Play,
+  Pause,
+  Plus,
+  Download,
+} from "lucide-react";
 import type { WorkoutDay, WorkoutExercise, WorkoutPlan } from "@/types";
 import { storage } from "@/utils/storage";
 import { replaceExerciseInPlan } from "@/utils/generateWorkout";
 import { useHydrated } from "@/lib/use-hydrated";
+import { exerciseGifCandidates } from "@/utils/exerciseMedia";
+import {
+  portugueseInstructions,
+  translateExerciseName,
+  translateMuscle,
+} from "@/data/translations";
 
 export const Route = createFileRoute("/workout")({
-  head: () => ({ meta: [{ title: "Meu treino — Forjar" }, { name: "description", content: "Visualize e execute seu plano de treino personalizado." }] }),
+  head: () => ({
+    meta: [
+      { title: "Meu treino — Forjar" },
+      { name: "description", content: "Visualize e execute seu plano de treino personalizado." },
+    ],
+  }),
   component: WorkoutPage,
 });
 
@@ -24,13 +46,25 @@ function WorkoutPage() {
     setCompleted(storage.getProgress().completed);
   }, [hydrated]);
 
-  if (!hydrated) return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-muted-foreground">Carregando...</div>;
+  if (!hydrated)
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center text-muted-foreground">
+        Carregando...
+      </div>
+    );
   if (!plan) {
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
         <h2 className="text-2xl font-bold">Nenhum treino ainda</h2>
-        <p className="mt-2 text-muted-foreground">Responda o quiz para gerar seu plano personalizado.</p>
-        <Link to="/quiz" className="mt-6 inline-block rounded-xl btn-brand px-6 py-3 text-sm font-semibold">Fazer o quiz</Link>
+        <p className="mt-2 text-muted-foreground">
+          Responda o quiz para gerar seu plano personalizado.
+        </p>
+        <Link
+          to="/quiz"
+          className="mt-6 inline-block rounded-xl btn-brand px-6 py-3 text-sm font-semibold"
+        >
+          Fazer o quiz
+        </Link>
       </div>
     );
   }
@@ -52,7 +86,10 @@ function WorkoutPage() {
   }
   function swap(ex: WorkoutExercise) {
     const library = storage.getLibrary();
-    if (!library) { alert("Biblioteca de exercícios não disponível."); return; }
+    if (!library) {
+      alert("Biblioteca de exercícios não disponível.");
+      return;
+    }
     const updated = replaceExerciseInPlan(plan!, day.id, ex.exerciseId, library);
     setPlan(updated);
     storage.savePlan(updated);
@@ -69,20 +106,58 @@ function WorkoutPage() {
       return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const rows: string[] = [];
-    rows.push(["Dia", "Foco", "Ordem", "Exercício", "Nome original", "Grupo muscular", "Equipamento", "Séries", "Repetições", "Descanso (s)", "Padrão de movimento"].map(esc).join(";"));
+    rows.push(
+      [
+        "Dia",
+        "Foco",
+        "Ordem",
+        "Exercício",
+        "Nome original",
+        "Grupo muscular",
+        "Equipamento",
+        "Séries",
+        "Repetições",
+        "Descanso (s)",
+        "Padrão de movimento",
+      ]
+        .map(esc)
+        .join(";"),
+    );
     for (const d of plan.days) {
       for (const ex of d.exercises) {
-        rows.push([
-          d.name, d.focus, ex.order, ex.namePt, ex.originalName, ex.primaryMuscle,
-          ex.equipment.join(", "), ex.sets, ex.repetitions, ex.restSeconds, ex.movementPattern,
-        ].map(esc).join(";"));
+        rows.push(
+          [
+            d.name,
+            d.focus,
+            ex.order,
+            translateExerciseName(ex.originalName),
+            ex.originalName,
+            ex.primaryMuscle,
+            ex.equipment.join(", "),
+            ex.sets,
+            ex.repetitions,
+            ex.restSeconds,
+            ex.movementPattern,
+          ]
+            .map(esc)
+            .join(";"),
+        );
       }
     }
     if (plan.cardio) {
       rows.push("");
       rows.push(["Cardio"].map(esc).join(";"));
       rows.push(["Frequência semanal", "Duração", "Intensidade", "Sugestões"].map(esc).join(";"));
-      rows.push([`${plan.cardio.frequency}x`, plan.cardio.duration, plan.cardio.intensity, plan.cardio.suggestions.join(", ")].map(esc).join(";"));
+      rows.push(
+        [
+          `${plan.cardio.frequency}x`,
+          plan.cardio.duration,
+          plan.cardio.intensity,
+          plan.cardio.suggestions.join(", "),
+        ]
+          .map(esc)
+          .join(";"),
+      );
     }
     // BOM so Excel detects UTF-8 accents correctly
     const csv = "\uFEFF" + rows.join("\n");
@@ -111,10 +186,16 @@ function WorkoutPage() {
           <p className="mt-1 text-xs text-muted-foreground">Divisão: {plan.division}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={downloadSpreadsheet} className="inline-flex items-center gap-2 rounded-lg btn-brand px-4 py-2 text-sm font-semibold">
+          <button
+            onClick={downloadSpreadsheet}
+            className="inline-flex items-center gap-2 rounded-lg btn-brand px-4 py-2 text-sm font-semibold"
+          >
             <Download className="h-4 w-4" /> Baixar planilha
           </button>
-          <button onClick={restart} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent">
+          <button
+            onClick={restart}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:bg-accent"
+          >
             <RefreshCw className="h-4 w-4" /> Refazer quiz
           </button>
         </div>
@@ -122,15 +203,22 @@ function WorkoutPage() {
 
       {plan.safetyMessages.length > 0 && (
         <div className="mb-6 rounded-2xl border border-brand/40 bg-brand/10 p-4 text-sm text-foreground">
-          {plan.safetyMessages.map((m, i) => (<p key={i} className={i > 0 ? "mt-2" : ""}>⚠ {m}</p>))}
+          {plan.safetyMessages.map((m, i) => (
+            <p key={i} className={i > 0 ? "mt-2" : ""}>
+              ⚠ {m}
+            </p>
+          ))}
         </div>
       )}
 
       {/* Day tabs */}
       <div className="mb-6 flex flex-wrap gap-2">
         {plan.days.map((d, i) => (
-          <button key={d.id} onClick={() => setActiveDay(i)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${i === activeDay ? "btn-brand" : "border border-border bg-card hover:bg-accent"}`}>
+          <button
+            key={d.id}
+            onClick={() => setActiveDay(i)}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${i === activeDay ? "btn-brand" : "border border-border bg-card hover:bg-accent"}`}
+          >
             {d.name}
           </button>
         ))}
@@ -139,22 +227,37 @@ function WorkoutPage() {
       {/* Progress */}
       <div className="mb-6 rounded-2xl border border-border bg-card p-5">
         <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="font-semibold">{day.name} • {day.focus}</span>
-          <span className="text-muted-foreground">{done}/{total} concluídos • {pct}%</span>
+          <span className="font-semibold">
+            {day.name} • {day.focus}
+          </span>
+          <span className="text-muted-foreground">
+            {done}/{total} concluídos • {pct}%
+          </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full bg-brand transition-all" style={{ width: `${pct}%` }} />
         </div>
         {done > 0 && (
-          <button onClick={resetDay} className="mt-3 text-xs text-muted-foreground hover:text-foreground">Reiniciar sessão</button>
+          <button
+            onClick={resetDay}
+            className="mt-3 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Reiniciar sessão
+          </button>
         )}
       </div>
 
       {/* Exercises */}
       <div className="grid gap-4">
         {day.exercises.map((ex) => (
-          <ExerciseCard key={ex.exerciseId + ex.order} ex={ex} done={!!completed[dayKey(ex)]}
-            onToggle={() => toggle(ex)} onSwap={() => swap(ex)} onOpen={() => setOpenDetail(ex)} />
+          <ExerciseCard
+            key={ex.exerciseId + ex.order}
+            ex={ex}
+            done={!!completed[dayKey(ex)]}
+            onToggle={() => toggle(ex)}
+            onSwap={() => swap(ex)}
+            onOpen={() => setOpenDetail(ex)}
+          />
         ))}
       </div>
 
@@ -162,7 +265,8 @@ function WorkoutPage() {
         <div className="mt-8 rounded-2xl border border-border bg-card p-6">
           <h3 className="text-lg font-bold">Cardio</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {plan.cardio.frequency}× por semana • {plan.cardio.duration} • Intensidade {plan.cardio.intensity.toLowerCase()}.
+            {plan.cardio.frequency}× por semana • {plan.cardio.duration} • Intensidade{" "}
+            {plan.cardio.intensity.toLowerCase()}.
           </p>
           <p className="mt-2 text-sm">Sugestões: {plan.cardio.suggestions.join(", ")}.</p>
         </div>
@@ -173,40 +277,69 @@ function WorkoutPage() {
   );
 }
 
-function ExerciseCard({ ex, done, onToggle, onSwap, onOpen }: { ex: WorkoutExercise; done: boolean; onToggle: () => void; onSwap: () => void; onOpen: () => void }) {
-  const [imgOk, setImgOk] = useState(true);
+function ExerciseCard({
+  ex,
+  done,
+  onToggle,
+  onSwap,
+  onOpen,
+}: {
+  ex: WorkoutExercise;
+  done: boolean;
+  onToggle: () => void;
+  onSwap: () => void;
+  onOpen: () => void;
+}) {
   return (
-    <div className={`overflow-hidden rounded-2xl border bg-card transition ${done ? "border-brand/60 opacity-75" : "border-border"}`}>
+    <div
+      className={`overflow-hidden rounded-2xl border bg-card transition ${done ? "border-brand/60 opacity-75" : "border-border"}`}
+    >
       <div className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
         <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-xl bg-muted sm:h-32 sm:w-32">
-          {ex.gifUrl && imgOk ? (
-            <img src={ex.gifUrl} alt={ex.namePt} loading="lazy" onError={() => setImgOk(false)} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">Demonstração indisponível</div>
-          )}
+          <ExerciseGif ex={ex} loading="lazy" className="h-full w-full object-cover" />
         </div>
         <div className="flex-1">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-medium text-muted-foreground">#{ex.order} • {ex.primaryMuscle}</div>
-              <h3 className="mt-0.5 text-lg font-bold leading-tight">{ex.namePt}</h3>
-              <p className="text-xs text-muted-foreground">{ex.originalName}</p>
+              <div className="text-xs font-medium text-muted-foreground">
+                #{ex.order} • {ex.primaryMuscle}
+              </div>
+              <h3 className="mt-0.5 text-lg font-bold leading-tight">
+                {translateExerciseName(ex.originalName)}
+              </h3>
             </div>
-            <button onClick={onToggle} aria-label="Marcar como concluído" className="shrink-0 text-brand">
-              {done ? <CheckCircle2 className="h-7 w-7" /> : <Circle className="h-7 w-7 opacity-50" />}
+            <button
+              onClick={onToggle}
+              aria-label="Marcar como concluído"
+              className="shrink-0 text-brand"
+            >
+              {done ? (
+                <CheckCircle2 className="h-7 w-7" />
+              ) : (
+                <Circle className="h-7 w-7 opacity-50" />
+              )}
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <Tag>{ex.sets} séries</Tag>
             <Tag>{ex.repetitions} reps</Tag>
-            <Tag><Timer className="mr-1 inline h-3 w-3" />{ex.restSeconds}s</Tag>
+            <Tag>
+              <Timer className="mr-1 inline h-3 w-3" />
+              {ex.restSeconds}s
+            </Tag>
             <Tag>{ex.equipment.join(", ")}</Tag>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={onOpen} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              onClick={onOpen}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+            >
               <Info className="h-3.5 w-3.5" /> Detalhes
             </button>
-            <button onClick={onSwap} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              onClick={onSwap}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+            >
               <Repeat className="h-3.5 w-3.5" /> Trocar exercício
             </button>
             <RestTimer seconds={ex.restSeconds} />
@@ -218,7 +351,11 @@ function ExerciseCard({ ex, done, onToggle, onSwap, onOpen }: { ex: WorkoutExerc
 }
 
 function Tag({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-border bg-background px-2.5 py-1 font-medium">{children}</span>;
+  return (
+    <span className="rounded-full border border-border bg-background px-2.5 py-1 font-medium">
+      {children}
+    </span>
+  );
 }
 
 function RestTimer({ seconds }: { seconds: number }) {
@@ -226,39 +363,73 @@ function RestTimer({ seconds }: { seconds: number }) {
   const [running, setRunning] = useState(false);
   useEffect(() => {
     if (!running) return;
-    if (remaining <= 0) { setRunning(false); return; }
+    if (remaining <= 0) {
+      setRunning(false);
+      return;
+    }
     const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
     return () => clearTimeout(t);
   }, [running, remaining]);
-  const mm = Math.floor(remaining / 60).toString().padStart(1, "0");
+  const mm = Math.floor(remaining / 60)
+    .toString()
+    .padStart(1, "0");
   const ss = (remaining % 60).toString().padStart(2, "0");
   return (
     <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-xs">
-      <button onClick={() => setRunning((r) => !r)} aria-label={running ? "Pausar" : "Iniciar cronômetro"} className="p-0.5">
+      <button
+        onClick={() => setRunning((r) => !r)}
+        aria-label={running ? "Pausar" : "Iniciar cronômetro"}
+        className="p-0.5"
+      >
         {running ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
       </button>
-      <span className="tabular-nums font-semibold">{mm}:{ss}</span>
-      <button onClick={() => setRemaining((r) => r + 15)} aria-label="+15s" className="p-0.5"><Plus className="h-3.5 w-3.5" /></button>
-      <button onClick={() => { setRunning(false); setRemaining(seconds); }} aria-label="Reiniciar" className="p-0.5"><RefreshCw className="h-3.5 w-3.5" /></button>
+      <span className="tabular-nums font-semibold">
+        {mm}:{ss}
+      </span>
+      <button onClick={() => setRemaining((r) => r + 15)} aria-label="+15s" className="p-0.5">
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => {
+          setRunning(false);
+          setRemaining(seconds);
+        }}
+        aria-label="Reiniciar"
+        className="p-0.5"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
 
 function ExerciseDetails({ ex, onClose }: { ex: WorkoutExercise; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs text-muted-foreground">{ex.primaryMuscle} • {ex.movementPattern}</div>
-            <h2 className="mt-1 text-2xl font-bold">{ex.namePt}</h2>
-            <p className="text-sm text-muted-foreground">{ex.originalName}</p>
+            <div className="text-xs text-muted-foreground">
+              {ex.primaryMuscle} • {ex.movementPattern}
+            </div>
+            <h2 className="mt-1 text-2xl font-bold">{translateExerciseName(ex.originalName)}</h2>
           </div>
-          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1 text-sm hover:bg-accent">Fechar</button>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-3 py-1 text-sm hover:bg-accent"
+          >
+            Fechar
+          </button>
         </div>
-        {ex.gifUrl && (
-          <img src={ex.gifUrl} alt={ex.namePt} className="mt-4 w-full rounded-xl bg-muted object-contain" />
-        )}
+        <div className="mt-4 min-h-48 w-full overflow-hidden rounded-xl bg-muted">
+          <ExerciseGif ex={ex} loading="eager" className="max-h-[28rem] w-full object-contain" />
+        </div>
         <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
           <Stat label="Séries" value={String(ex.sets)} />
           <Stat label="Reps" value={ex.repetitions} />
@@ -271,17 +442,22 @@ function ExerciseDetails({ ex, onClose }: { ex: WorkoutExercise; onClose: () => 
         {ex.secondaryMuscles.length > 0 && (
           <div className="mt-3">
             <div className="text-sm font-semibold">Músculos secundários</div>
-            <div className="text-sm text-muted-foreground">{ex.secondaryMuscles.join(", ")}</div>
+            <div className="text-sm text-muted-foreground">
+              {ex.secondaryMuscles.map(translateMuscle).join(", ")}
+            </div>
           </div>
         )}
-        {ex.instructions.length > 0 && (
-          <div className="mt-4">
-            <div className="text-sm font-semibold">Instruções</div>
-            <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-              {ex.instructions.map((s, i) => <li key={i}>{s.replace(/^Step:\d+\s*/i, "")}</li>)}
-            </ol>
-          </div>
-        )}
+        <div className="mt-4">
+          <div className="text-sm font-semibold">Instruções</div>
+          <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+            {portugueseInstructions({
+              ...ex,
+              namePt: translateExerciseName(ex.originalName),
+            }).map((instruction, i) => (
+              <li key={i}>{instruction}</li>
+            ))}
+          </ol>
+        </div>
         <div className="mt-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
           Comece com uma carga leve, priorize a execução correta e nunca treine sob dor articular.
         </div>
@@ -296,5 +472,42 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-lg font-bold">{value}</div>
     </div>
+  );
+}
+
+function ExerciseGif({
+  ex,
+  loading,
+  className,
+}: {
+  ex: WorkoutExercise;
+  loading: "eager" | "lazy";
+  className: string;
+}) {
+  const candidates = exerciseGifCandidates(ex);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [ex.exerciseId, ex.gifUrl]);
+
+  if (candidateIndex >= candidates.length) {
+    return (
+      <div className="flex h-full min-h-32 items-center justify-center p-3 text-center text-xs text-muted-foreground">
+        Demonstração indisponível
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={candidates[candidateIndex]}
+      alt={`Demonstração de ${translateExerciseName(ex.originalName)}`}
+      loading={loading}
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setCandidateIndex((index) => index + 1)}
+      className={className}
+    />
   );
 }

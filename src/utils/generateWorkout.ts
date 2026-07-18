@@ -1,5 +1,11 @@
 import type { Exercise, UserProfile, WorkoutDay, WorkoutExercise, WorkoutPlan } from "@/types";
-import { categoryOf, translateExerciseName, primaryMusclePt, equipmentPt } from "@/data/translations";
+import {
+  categoryOf,
+  translateExerciseName,
+  primaryMusclePt,
+  equipmentPt,
+  translateMuscle,
+} from "@/data/translations";
 
 // Movement pattern by simple heuristic on name
 function movementPattern(name: string, category: string): string {
@@ -21,7 +27,16 @@ function movementPattern(name: string, category: string): string {
 
 // Which categories fit each day focus
 const FOCUS_MAP: Record<string, string[]> = {
-  "Full Body": ["Peitoral", "Costas", "Pernas", "Ombros", "Braços", "Abdômen e core"],
+  "Full Body": [
+    "Peitoral",
+    "Costas",
+    "Ombros",
+    "Braços",
+    "Pernas",
+    "Glúteos",
+    "Abdômen e core",
+    "Panturrilhas",
+  ],
   Superior: ["Peitoral", "Costas", "Ombros", "Braços"],
   Inferior: ["Pernas", "Panturrilhas", "Abdômen e core"],
   Empurrar: ["Peitoral", "Ombros", "Braços"], // triceps in Braços
@@ -31,33 +46,43 @@ const FOCUS_MAP: Record<string, string[]> = {
   "Costas e bíceps": ["Costas", "Braços"],
 };
 
-interface DayTemplate { name: string; focus: string; }
+interface DayTemplate {
+  name: string;
+  focus: string;
+}
 
 function pickDivision(days: number, experience: UserProfile["experience"]): DayTemplate[] {
-  const isBeginner = experience === "never_trained" || experience === "returning" || experience === "under_six_months";
-  if (days <= 2) return [
-    { name: "Treino A", focus: "Full Body" },
-    { name: "Treino B", focus: "Full Body" },
-  ];
-  if (days === 3) return [
-    { name: "Treino A", focus: "Full Body" },
-    { name: "Treino B", focus: "Full Body" },
-    { name: "Treino C", focus: "Full Body" },
-  ];
-  if (days === 4) return [
-    { name: "Superior A", focus: "Superior" },
-    { name: "Inferior A", focus: "Inferior" },
-    { name: "Superior B", focus: "Superior" },
-    { name: "Inferior B", focus: "Inferior" },
-  ];
-  if (days === 5) {
-    if (isBeginner) return [
+  const isBeginner =
+    experience === "never_trained" ||
+    experience === "returning" ||
+    experience === "under_six_months";
+  if (days <= 2)
+    return [
+      { name: "Treino A", focus: "Full Body" },
+      { name: "Treino B", focus: "Full Body" },
+    ];
+  if (days === 3)
+    return [
+      { name: "Treino A", focus: "Full Body" },
+      { name: "Treino B", focus: "Full Body" },
+      { name: "Treino C", focus: "Full Body" },
+    ];
+  if (days === 4)
+    return [
       { name: "Superior A", focus: "Superior" },
       { name: "Inferior A", focus: "Inferior" },
       { name: "Superior B", focus: "Superior" },
       { name: "Inferior B", focus: "Inferior" },
-      { name: "Full Body", focus: "Full Body" },
     ];
+  if (days === 5) {
+    if (isBeginner)
+      return [
+        { name: "Superior A", focus: "Superior" },
+        { name: "Inferior A", focus: "Inferior" },
+        { name: "Superior B", focus: "Superior" },
+        { name: "Inferior B", focus: "Inferior" },
+        { name: "Full Body", focus: "Full Body" },
+      ];
     return [
       { name: "Peito/Ombros/Tríceps", focus: "Peito, ombros e tríceps" },
       { name: "Costas/Bíceps", focus: "Costas e bíceps" },
@@ -84,7 +109,11 @@ function exerciseCountForTime(minutes: number): number {
   return 8;
 }
 
-function setsRepsRest(goal: UserProfile["goal"], experience: UserProfile["experience"], compound: boolean): { sets: number; reps: string; rest: number } {
+function setsRepsRest(
+  goal: UserProfile["goal"],
+  experience: UserProfile["experience"],
+  compound: boolean,
+): { sets: number; reps: string; rest: number } {
   const beginner = experience === "never_trained" || experience === "returning";
   if (beginner) return { sets: 3, reps: "8-12", rest: compound ? 90 : 60 };
   switch (goal) {
@@ -92,7 +121,11 @@ function setsRepsRest(goal: UserProfile["goal"], experience: UserProfile["experi
       return compound ? { sets: 4, reps: "4-6", rest: 150 } : { sets: 3, reps: "8-12", rest: 90 };
     case "hypertrophy":
     case "recomposition":
-      return { sets: compound ? 4 : 3, reps: compound ? "6-10" : "10-15", rest: compound ? 120 : 75 };
+      return {
+        sets: compound ? 4 : 3,
+        reps: compound ? "6-10" : "10-15",
+        rest: compound ? 120 : 75,
+      };
     case "fat_loss":
     case "conditioning":
       return { sets: 3, reps: "10-15", rest: compound ? 75 : 45 };
@@ -124,9 +157,12 @@ function limitationAllows(ex: Exercise, profile: UserProfile): boolean {
   if (!profile.hasLimitation) return true;
   const name = ex.name.toLowerCase();
   const lims = profile.limitations.map((l) => l.toLowerCase());
-  if (lims.some((l) => l.includes("joelho")) && /(jump|burpee|deep squat|pistol)/.test(name)) return false;
-  if (lims.some((l) => l.includes("coluna")) && /(deadlift|good morning|bent over row)/.test(name)) return false;
-  if (lims.some((l) => l.includes("ombro")) && /(overhead|behind the neck|upright row)/.test(name)) return false;
+  if (lims.some((l) => l.includes("joelho")) && /(jump|burpee|deep squat|pistol)/.test(name))
+    return false;
+  if (lims.some((l) => l.includes("coluna")) && /(deadlift|good morning|bent over row)/.test(name))
+    return false;
+  if (lims.some((l) => l.includes("ombro")) && /(overhead|behind the neck|upright row)/.test(name))
+    return false;
   if (lims.some((l) => l.includes("punho")) && /(handstand|push[- ]?up)/.test(name)) return false;
   return true;
 }
@@ -134,16 +170,60 @@ function limitationAllows(ex: Exercise, profile: UserProfile): boolean {
 function dislikedFilter(ex: Exercise, profile: UserProfile): boolean {
   const dis = profile.dislikedExercises?.toLowerCase().trim();
   if (!dis) return true;
-  const tokens = dis.split(/[,;]/).map((t) => t.trim()).filter(Boolean);
+  const tokens = dis
+    .split(/[,;]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
   const n = ex.name.toLowerCase();
   return !tokens.some((t) => t.length >= 3 && n.includes(t));
 }
 
 function isCompound(ex: Exercise): boolean {
-  return (ex.secondaryMuscles?.length || 0) >= 2 || /(squat|deadlift|bench press|row|pull[- ]?up|press|clean|lunge|dip)/i.test(ex.name);
+  return (
+    (ex.secondaryMuscles?.length || 0) >= 2 ||
+    /(squat|deadlift|bench press|row|pull[- ]?up|press|clean|lunge|dip)/i.test(ex.name)
+  );
 }
 
-function toWorkoutExercise(ex: Exercise, order: number, profile: UserProfile, goal: UserProfile["goal"]): WorkoutExercise {
+function isBeginnerExperience(experience: UserProfile["experience"]): boolean {
+  return (
+    experience === "never_trained" ||
+    experience === "returning" ||
+    experience === "under_six_months"
+  );
+}
+
+function beginnerFriendlyScore(exercise: Exercise): number {
+  const name = exercise.name.toLowerCase();
+  const equipments = exercise.equipments.map((item) => item.toLowerCase());
+  let score = 0;
+  if (
+    equipments.some((item) =>
+      ["leverage machine", "cable", "dumbbell", "body weight"].includes(item),
+    )
+  )
+    score += 4;
+  if (/(press|row|pulldown|curl|extension|raise|squat|bridge|crunch|plank)/.test(name)) score += 3;
+  if (/(machine|supported|seated|lying)/.test(name)) score += 2;
+  if (
+    /(olympic|snatch|clean|jerk|muscle[- ]?up|handstand|planche|pistol|one[- ]?arm|one[- ]?leg|archer|impossible)/.test(
+      name,
+    )
+  )
+    score -= 20;
+  return score;
+}
+
+function priorityCategory(priority: string): string {
+  return priority === "Abdômen" ? "Abdômen e core" : priority;
+}
+
+function toWorkoutExercise(
+  ex: Exercise,
+  order: number,
+  profile: UserProfile,
+  goal: UserProfile["goal"],
+): WorkoutExercise {
   const compound = isCompound(ex);
   const { sets, reps, rest } = setsRepsRest(goal, profile.experience, compound);
   const namePt = translateExerciseName(ex.name);
@@ -154,7 +234,7 @@ function toWorkoutExercise(ex: Exercise, order: number, profile: UserProfile, go
     originalName: ex.name,
     gifUrl: ex.gifUrl,
     primaryMuscle: primaryMusclePt(ex),
-    secondaryMuscles: ex.secondaryMuscles || [],
+    secondaryMuscles: (ex.secondaryMuscles || []).map(translateMuscle),
     equipment: ex.equipments.map(equipmentPt),
     movementPattern: movementPattern(ex.name, category),
     sets,
@@ -166,7 +246,14 @@ function toWorkoutExercise(ex: Exercise, order: number, profile: UserProfile, go
 }
 
 export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): WorkoutPlan {
-  const filtered = library.filter((e) => equipmentAllowed(e, profile) && limitationAllows(e, profile) && dislikedFilter(e, profile));
+  const beginner = isBeginnerExperience(profile.experience);
+  const filtered = library.filter(
+    (e) =>
+      equipmentAllowed(e, profile) &&
+      limitationAllows(e, profile) &&
+      dislikedFilter(e, profile) &&
+      (!beginner || beginnerFriendlyScore(e) > -10),
+  );
   const division = pickDivision(profile.daysPerWeek, profile.experience);
   const exPerDay = exerciseCountForTime(profile.minutesPerSession);
 
@@ -176,6 +263,10 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   // Prefer compounds first, deterministic ordering
   for (const c of Object.keys(byCat)) {
     byCat[c].sort((a, b) => {
+      if (beginner) {
+        const beginnerDifference = beginnerFriendlyScore(b) - beginnerFriendlyScore(a);
+        if (beginnerDifference !== 0) return beginnerDifference;
+      }
       const cd = Number(isCompound(b)) - Number(isCompound(a));
       if (cd !== 0) return cd;
       return a.exerciseId.localeCompare(b.exerciseId);
@@ -189,14 +280,17 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
     const usedInDay = new Set<string>();
 
     // priority categories boost: add extra slot
-    let neededPerCat = Math.max(1, Math.floor(exPerDay / cats.length));
+    const neededPerCat = Math.max(1, Math.floor(exPerDay / cats.length));
     let remaining = exPerDay;
 
     // priority handling: if user prioritized a muscle mapped to categories, put it first
-    const orderedCats = [...cats];
-    for (const pr of profile.priorities) {
-      const idx = orderedCats.indexOf(pr);
-      if (idx > 0) { orderedCats.splice(idx, 1); orderedCats.unshift(pr); }
+    const priorityCats = profile.priorities.map(priorityCategory);
+    const prioritized = cats.filter((category) => priorityCats.includes(category));
+    const regular = cats.filter((category) => !priorityCats.includes(category));
+    let orderedCats = [...prioritized, ...regular];
+    if (tpl.focus === "Full Body" && orderedCats.length > 0) {
+      const rotation = dIdx % orderedCats.length;
+      orderedCats = [...orderedCats.slice(rotation), ...orderedCats.slice(0, rotation)];
     }
 
     for (const cat of orderedCats) {
@@ -259,18 +353,30 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   });
 
   const safetyMessages: string[] = [];
-  if (profile.age < 18) safetyMessages.push("Menor de 18 anos: recomendamos acompanhamento de um responsável e de um profissional de Educação Física.");
-  if (profile.hasLimitation) safetyMessages.push("Você declarou uma limitação. Antes de iniciar, procure a liberação de um profissional de saúde e a orientação presencial de um profissional de Educação Física.");
-  if (profile.experience === "never_trained" && profile.daysPerWeek >= 5) safetyMessages.push("Iniciantes se beneficiam mais de consistência e recuperação do que de alta frequência. Considere começar com menos dias por semana.");
+  if (profile.age < 18)
+    safetyMessages.push(
+      "Menor de 18 anos: recomendamos acompanhamento de um responsável e de um profissional de Educação Física.",
+    );
+  if (profile.hasLimitation)
+    safetyMessages.push(
+      "Você declarou uma limitação. Antes de iniciar, procure a liberação de um profissional de saúde e a orientação presencial de um profissional de Educação Física.",
+    );
+  if (profile.experience === "never_trained" && profile.daysPerWeek >= 5)
+    safetyMessages.push(
+      "Iniciantes se beneficiam mais de consistência e recuperação do que de alta frequência. Considere começar com menos dias por semana.",
+    );
 
-  const cardio = (profile.includeCardio === "yes" || (profile.includeCardio === "recommended" && (profile.goal === "fat_loss" || profile.goal === "conditioning")))
-    ? {
-        frequency: profile.goal === "fat_loss" || profile.goal === "conditioning" ? 3 : 2,
-        duration: profile.conditioning === "low" ? "15-25 min" : "20-40 min",
-        intensity: "Leve a moderada",
-        suggestions: ["Caminhada", "Bicicleta", "Esteira", "Elíptico"],
-      }
-    : undefined;
+  const cardio =
+    profile.includeCardio === "yes" ||
+    (profile.includeCardio === "recommended" &&
+      (profile.goal === "fat_loss" || profile.goal === "conditioning"))
+      ? {
+          frequency: profile.goal === "fat_loss" || profile.goal === "conditioning" ? 3 : 2,
+          duration: profile.conditioning === "low" ? "15-25 min" : "20-40 min",
+          intensity: "Leve a moderada",
+          suggestions: ["Caminhada", "Bicicleta", "Esteira", "Elíptico"],
+        }
+      : undefined;
 
   const goalPt: Record<string, string> = {
     hypertrophy: "hipertrofia",
@@ -280,33 +386,47 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
     conditioning: "condicionamento",
     health: "saúde e qualidade de vida",
   };
-  const summary = `Plano com ${profile.daysPerWeek} sessões semanais, divisão ${division[0].focus === "Full Body" && profile.daysPerWeek <= 3 ? "Full Body" : division.map(d => d.focus).join("/")}, ajustado para ${goalPt[profile.goal]}${profile.priorities.length ? ` com prioridade em ${profile.priorities.join(", ")}` : ""}.`;
+  const summary = `Plano com ${profile.daysPerWeek} sessões semanais, divisão ${division[0].focus === "Full Body" && profile.daysPerWeek <= 3 ? "Full Body" : division.map((d) => d.focus).join("/")}, ajustado para ${goalPt[profile.goal]}${profile.priorities.length ? ` com prioridade em ${profile.priorities.join(", ")}` : ""}.`;
 
   return {
     id: `plan-${Date.now()}`,
     createdAt: new Date().toISOString(),
     profile,
     profileSummary: summary,
-    division: division.map(d => d.name).join(" • "),
+    division: division.map((d) => d.name).join(" • "),
     days,
     cardio,
     safetyMessages,
   };
 }
 
-export function replaceExerciseInPlan(plan: WorkoutPlan, dayId: string, exerciseId: string, library: Exercise[]): WorkoutPlan {
-  const day = plan.days.find(d => d.id === dayId);
+export function replaceExerciseInPlan(
+  plan: WorkoutPlan,
+  dayId: string,
+  exerciseId: string,
+  library: Exercise[],
+): WorkoutPlan {
+  const day = plan.days.find((d) => d.id === dayId);
   if (!day) return plan;
-  const current = day.exercises.find(e => e.exerciseId === exerciseId);
+  const current = day.exercises.find((e) => e.exerciseId === exerciseId);
   if (!current) return plan;
-  const usedIds = new Set(day.exercises.map(e => e.exerciseId));
+  const usedIds = new Set(day.exercises.map((e) => e.exerciseId));
   const currentCategory = current.primaryMuscle;
   const currentPattern = current.movementPattern;
 
   const candidates = library
-    .filter(e => equipmentAllowed(e, plan.profile) && limitationAllows(e, plan.profile) && dislikedFilter(e, plan.profile))
-    .filter(e => !usedIds.has(e.exerciseId))
-    .filter(e => primaryMusclePt(e) === currentCategory || movementPattern(e.name, categoryOf(e)) === currentPattern)
+    .filter(
+      (e) =>
+        equipmentAllowed(e, plan.profile) &&
+        limitationAllows(e, plan.profile) &&
+        dislikedFilter(e, plan.profile),
+    )
+    .filter((e) => !usedIds.has(e.exerciseId))
+    .filter(
+      (e) =>
+        primaryMusclePt(e) === currentCategory ||
+        movementPattern(e.name, categoryOf(e)) === currentPattern,
+    )
     .sort((a, b) => a.exerciseId.localeCompare(b.exerciseId));
 
   if (candidates.length === 0) return plan;
@@ -319,9 +439,13 @@ export function replaceExerciseInPlan(plan: WorkoutPlan, dayId: string, exercise
   };
   return {
     ...plan,
-    days: plan.days.map(d => d.id !== dayId ? d : {
-      ...d,
-      exercises: d.exercises.map(e => e.exerciseId === exerciseId ? newEx : e),
-    }),
+    days: plan.days.map((d) =>
+      d.id !== dayId
+        ? d
+        : {
+            ...d,
+            exercises: d.exercises.map((e) => (e.exerciseId === exerciseId ? newEx : e)),
+          },
+    ),
   };
 }

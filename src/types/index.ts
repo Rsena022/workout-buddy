@@ -15,7 +15,8 @@ export interface UserProfile {
   heightCm: number;
   weightKg: number;
   goal: "hypertrophy" | "fat_loss" | "recomposition" | "strength" | "conditioning" | "health";
-  experience: "never_trained" | "returning" | "under_six_months" | "six_to_twelve_months" | "over_one_year";
+  experience:
+    "never_trained" | "returning" | "under_six_months" | "six_to_twelve_months" | "over_one_year";
   location: "full_gym" | "basic_gym" | "home_equipment" | "home_no_equipment";
   equipment: string[];
   daysPerWeek: number;
@@ -83,4 +84,5 @@ export interface StoredData {
   progress?: WorkoutProgress;
   exerciseLibrary?: Exercise[];
   libraryFetchedAt?: string;
+  exerciseLibraryVersion?: number;
 }
