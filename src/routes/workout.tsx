@@ -292,9 +292,15 @@ function ExerciseCard({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-2xl border bg-card transition ${done ? "border-brand/60 opacity-75" : "border-border"}`}
+      className={`group relative overflow-hidden rounded-2xl border bg-card transition hover:border-brand/60 focus-within:border-brand/60 ${done ? "border-brand/60 opacity-75" : "border-border"}`}
     >
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Abrir detalhes de ${translateExerciseName(ex.originalName)}`}
+        className="absolute inset-0 z-0 cursor-pointer rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
+      />
+      <div className="pointer-events-none relative z-10 flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
         <div className="relative h-40 w-full shrink-0 overflow-hidden rounded-xl bg-muted sm:h-32 sm:w-32">
           <ExerciseGif ex={ex} loading="lazy" className="h-full w-full object-cover" />
         </div>
@@ -309,9 +315,10 @@ function ExerciseCard({
               </h3>
             </div>
             <button
+              type="button"
               onClick={onToggle}
               aria-label="Marcar como concluído"
-              className="shrink-0 text-brand"
+              className="pointer-events-auto shrink-0 text-brand"
             >
               {done ? (
                 <CheckCircle2 className="h-7 w-7" />
@@ -329,14 +336,16 @@ function ExerciseCard({
             </Tag>
             <Tag>{ex.equipment.join(", ")}</Tag>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="pointer-events-auto mt-3 flex flex-wrap gap-2">
             <button
+              type="button"
               onClick={onOpen}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
             >
               <Info className="h-3.5 w-3.5" /> Detalhes
             </button>
             <button
+              type="button"
               onClick={onSwap}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
             >
