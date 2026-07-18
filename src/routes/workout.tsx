@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Circle, Repeat, Timer, Info, RefreshCw, Play, Pause, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Repeat, Timer, Info, RefreshCw, Play, Pause, Plus, Download } from "lucide-react";
 import type { WorkoutDay, WorkoutExercise, WorkoutPlan } from "@/types";
 import { storage } from "@/utils/storage";
 import { replaceExerciseInPlan } from "@/utils/generateWorkout";
