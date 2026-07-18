@@ -62,6 +62,40 @@ function WorkoutPage() {
     storage.clearPlan();
     location.href = "/quiz";
   }
+  function downloadSpreadsheet() {
+    if (!plan) return;
+    const esc = (v: string | number) => {
+      const s = String(v ?? "");
+      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows: string[] = [];
+    rows.push(["Dia", "Foco", "Ordem", "Exercício", "Nome original", "Grupo muscular", "Equipamento", "Séries", "Repetições", "Descanso (s)", "Padrão de movimento"].map(esc).join(";"));
+    for (const d of plan.days) {
+      for (const ex of d.exercises) {
+        rows.push([
+          d.name, d.focus, ex.order, ex.namePt, ex.originalName, ex.primaryMuscle,
+          ex.equipment.join(", "), ex.sets, ex.repetitions, ex.restSeconds, ex.movementPattern,
+        ].map(esc).join(";"));
+      }
+    }
+    if (plan.cardio) {
+      rows.push("");
+      rows.push(["Cardio"].map(esc).join(";"));
+      rows.push(["Frequência semanal", "Duração", "Intensidade", "Sugestões"].map(esc).join(";"));
+      rows.push([`${plan.cardio.frequency}x`, plan.cardio.duration, plan.cardio.intensity, plan.cardio.suggestions.join(", ")].map(esc).join(";"));
+    }
+    // BOM so Excel detects UTF-8 accents correctly
+    const csv = "\uFEFF" + rows.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `treino-forjar-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const total = day.exercises.length;
   const done = day.exercises.filter((e) => completed[dayKey(e)]).length;
