@@ -32,6 +32,7 @@ function QuizPage() {
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>({ equipment: [], limitations: [], priorities: [], hasLimitation: false });
   const [processing, setProcessing] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const progress = useMemo(() => (step / TOTAL_STEPS) * 100, [step]);
 
