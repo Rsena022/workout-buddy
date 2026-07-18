@@ -37,10 +37,14 @@ function scoreExercise(e: Exercise): number {
   let s = 0;
   if (e.gifUrl) s += 3;
   if (e.instructions && e.instructions.length >= 3) s += 2;
-  if (e.equipments?.includes("body weight")) s += 1;
-  if (e.equipments?.some((eq) => ["barbell", "dumbbell", "cable"].includes(eq))) s += 1;
-  // penalize very obscure equipments
-  if (e.equipments?.some((eq) => ["assisted", "sled", "roller"].includes(eq))) s -= 1;
+  if (e.equipments?.includes("body weight")) s += 2;
+  if (e.equipments?.some((eq) => ["dumbbell", "cable", "leverage machine"].includes(eq))) s += 2;
+  if (e.equipments?.some((eq) => ["barbell"].includes(eq))) s += 1;
+  const name = e.name?.toLowerCase() || "";
+  if (BEGINNER_KEYWORDS.some((k) => name.includes(k))) s += 3;
+  if (ADVANCED_KEYWORDS.some((k) => name.includes(k))) s -= 4;
+  // penalize obscure equipments
+  if (e.equipments?.some((eq) => ["assisted", "sled", "roller", "trap bar"].includes(eq))) s -= 1;
   return s;
 }
 
