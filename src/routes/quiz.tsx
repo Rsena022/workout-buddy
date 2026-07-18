@@ -93,10 +93,11 @@ function QuizPage() {
       "Ajustando volume e intensidade...",
       "Finalizando seu plano...",
     ];
+    setLoadError(null);
     setProcessing(stages[0]);
     try {
-      let library = storage.getLibrary();
-      if (library && library.length < 350) library = undefined;
+      const cached = storage.getLibrary();
+      let library = cached && cached.length >= 300 ? cached : undefined;
       const stagePromise = (async () => {
         for (let i = 0; i < stages.length; i++) {
           setProcessing(stages[i]);
@@ -104,20 +105,59 @@ function QuizPage() {
         }
       })();
       if (!library) {
-        const all = await fetchAllExercises();
-        library = selectExerciseLibrary(all, 350);
-        storage.saveLibrary(library);
+        try {
+          const all = await fetchAllExercises(350);
+          if (all.length < 50) throw new Error(`API retornou apenas ${all.length} exercícios válidos`);
+          library = selectExerciseLibrary(all, 350);
+          storage.saveLibrary(library);
+        } catch (apiErr) {
+          console.error("[ExerciseDB] falha ao carregar da API:", apiErr);
+          if (cached && cached.length > 0) {
+            console.warn("[ExerciseDB] usando biblioteca local como fallback.");
+            library = cached;
+          } else {
+            throw apiErr;
+          }
+        }
       }
       await stagePromise;
-      const plan = generateWorkoutPlan(profile, library);
+      const plan = generateWorkoutPlan(profile, library!);
       storage.savePlan(plan);
       storage.saveProgress({ completed: {}, updatedAt: new Date().toISOString() });
       navigate({ to: "/workout" });
     } catch (err) {
-      console.error(err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[Quiz] erro ao gerar o treino:", err);
+      setLoadError(msg);
+    } finally {
       setProcessing(null);
-      alert("Não foi possível carregar os exercícios neste momento. Tente novamente.");
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center px-4">
+        <div className="w-full rounded-2xl border border-border bg-card p-6 text-center">
+          <h2 className="text-xl font-bold">Não foi possível carregar os exercícios</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ocorreu um problema ao conectar com a base de exercícios. Verifique sua conexão e tente novamente.
+          </p>
+          <p className="mt-3 rounded-lg bg-muted p-2 text-xs text-muted-foreground break-words">
+            Detalhe técnico: {loadError}
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <button onClick={() => { setLoadError(null); finish(); }}
+              className="rounded-xl btn-brand px-4 py-2.5 text-sm font-semibold">
+              Tentar novamente
+            </button>
+            <button onClick={() => { setLoadError(null); setStep(1); }}
+              className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
+              Voltar ao quiz
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (processing) {
