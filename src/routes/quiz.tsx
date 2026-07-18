@@ -95,6 +95,7 @@ function QuizPage() {
     setProcessing(stages[0]);
     try {
       let library = storage.getLibrary();
+      if (library && library.length < 350) library = undefined;
       const stagePromise = (async () => {
         for (let i = 0; i < stages.length; i++) {
           setProcessing(stages[i]);
@@ -103,7 +104,7 @@ function QuizPage() {
       })();
       if (!library) {
         const all = await fetchAllExercises();
-        library = selectExerciseLibrary(all, 150);
+        library = selectExerciseLibrary(all, 350);
         storage.saveLibrary(library);
       }
       await stagePromise;
