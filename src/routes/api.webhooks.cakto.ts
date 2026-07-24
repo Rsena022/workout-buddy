@@ -22,7 +22,7 @@ async function handleCaktoWebhook(request: Request) {
   }
 
   const rawBody = await request.text();
-  const suppliedSecret = webhookSecretFrom(request);
+  const suppliedSecret = webhookSecretFrom(request, rawBody);
   if (!suppliedSecret || !safeEqual(suppliedSecret, secret)) {
     return Response.json({ error: "Assinatura inválida" }, { status: 401 });
   }
@@ -41,7 +41,8 @@ async function handleCaktoWebhook(request: Request) {
   }
 
   const order = orderDataOf(payload);
-  const orderId = textAt(order, "id", "order_id", "orderId") || textAt(payload, "order_id", "orderId");
+  const orderId =
+    textAt(order, "id", "order_id", "orderId") || textAt(payload, "order_id", "orderId");
   if (!orderId) return Response.json({ error: "Pedido não identificado" }, { status: 400 });
 
   const providerEventId =
@@ -76,8 +77,7 @@ async function handleCaktoWebhook(request: Request) {
         p_customer_email: email,
         p_product_id: productId || null,
         p_order_id: orderId,
-        p_purchased_at:
-          textAt(order, "paid_at", "paidAt", "createdAt") || new Date().toISOString(),
+        p_purchased_at: textAt(order, "paid_at", "paidAt", "createdAt") || new Date().toISOString(),
         p_metadata: { event_id: providerEventId },
       });
       processingError = error?.message;
@@ -86,7 +86,11 @@ async function handleCaktoWebhook(request: Request) {
     const status = eventType === "refund" ? "refunded" : "chargeback";
     const { error } = await admin
       .from("entitlements")
-      .update({ status, revoked_at: new Date().toISOString(), metadata: { event_id: providerEventId } })
+      .update({
+        status,
+        revoked_at: new Date().toISOString(),
+        metadata: { event_id: providerEventId },
+      })
       .eq("provider", "cakto")
       .eq("order_id", orderId);
     processingError = error?.message;
@@ -105,13 +109,21 @@ async function handleCaktoWebhook(request: Request) {
   return Response.json({ received: true });
 }
 
-function webhookSecretFrom(request: Request) {
+function webhookSecretFrom(request: Request, rawBody: string) {
   const authorization = request.headers.get("authorization");
   if (authorization?.toLowerCase().startsWith("bearer ")) return authorization.slice(7).trim();
+  let bodySecret: string | undefined;
+  try {
+    const payload = JSON.parse(rawBody) as JsonRecord;
+    bodySecret = textAt(payload, "secret", "webhook_secret", "webhookSecret");
+  } catch {
+    // The regular JSON validation below will return the appropriate response.
+  }
   return (
     request.headers.get("x-cakto-secret") ||
     request.headers.get("x-webhook-secret") ||
-    request.headers.get("x-api-secret")
+    request.headers.get("x-api-secret") ||
+    bodySecret
   );
 }
 
