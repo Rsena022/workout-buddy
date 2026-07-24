@@ -10,10 +10,12 @@ export interface Exercise {
 }
 
 export interface UserProfile {
-  sex: "male" | "female" | "not_informed";
+  sex?: "male" | "female" | "not_informed";
   age: number;
-  heightCm: number;
-  weightKg: number;
+  heightCm?: number;
+  weightKg?: number;
+  trainingStyle: "guided" | "machines" | "free_weights" | "bodyweight" | "mixed";
+  activityLevel: "sedentary" | "light" | "moderate" | "active";
   goal: "hypertrophy" | "fat_loss" | "recomposition" | "strength" | "conditioning" | "health";
   experience:
     "never_trained" | "returning" | "under_six_months" | "six_to_twelve_months" | "over_one_year";
@@ -45,6 +47,11 @@ export interface WorkoutExercise {
   restSeconds: number;
   instructions: string[];
   order: number;
+  targetRir?: number;
+  tempo?: string;
+  warmup?: string[];
+  coachingCues?: string[];
+  progressionRule?: string;
 }
 
 export interface WorkoutDay {
@@ -69,6 +76,39 @@ export interface WorkoutPlan {
     suggestions: string[];
   };
   safetyMessages: string[];
+  personalConsiderations?: string[];
+  program?: {
+    durationWeeks: number;
+    progressionModel: "double_progression";
+    weeklyGuidance: string[];
+  };
+}
+
+export interface WorkoutSetPerformance {
+  setNumber: number;
+  weightKg?: number;
+  repetitions?: number;
+  rir?: number;
+  completed: boolean;
+}
+
+export interface WorkoutExercisePerformance {
+  exerciseId: string;
+  exerciseName: string;
+  sets: WorkoutSetPerformance[];
+}
+
+export interface WorkoutSession {
+  id: string;
+  planId: string;
+  dayId: string;
+  dayName: string;
+  startedAt: string;
+  completedAt?: string;
+  durationSeconds?: number;
+  perceivedEffort?: number;
+  notes?: string;
+  exercises: WorkoutExercisePerformance[];
 }
 
 export interface WorkoutProgress {
@@ -85,4 +125,7 @@ export interface StoredData {
   exerciseLibrary?: Exercise[];
   libraryFetchedAt?: string;
   exerciseLibraryVersion?: number;
+  sessions?: WorkoutSession[];
+  activeSession?: WorkoutSession;
+  cloudMigrationCompleted?: boolean;
 }

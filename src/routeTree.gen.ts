@@ -9,13 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WorkoutRouteImport } from './routes/workout'
-import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as QuizRouteImport } from './routes/quiz'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as WorkoutRouteImport } from './routes/workout'
+import { Route as ApiWebhooksCaktoRouteImport } from './routes/api.webhooks.cakto'
 
-const WorkoutRoute = WorkoutRouteImport.update({
-  id: '/workout',
-  path: '/workout',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuizRoute = QuizRouteImport.update({
@@ -23,49 +31,86 @@ const QuizRoute = QuizRouteImport.update({
   path: '/quiz',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkoutRoute = WorkoutRouteImport.update({
+  id: '/workout',
+  path: '/workout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksCaktoRoute = ApiWebhooksCaktoRouteImport.update({
+  id: '/api/webhooks/cakto',
+  path: '/api/webhooks/cakto',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/quiz': typeof QuizRoute
+  '/support': typeof SupportRoute
   '/workout': typeof WorkoutRoute
+  '/api/webhooks/cakto': typeof ApiWebhooksCaktoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/quiz': typeof QuizRoute
+  '/support': typeof SupportRoute
   '/workout': typeof WorkoutRoute
+  '/api/webhooks/cakto': typeof ApiWebhooksCaktoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/quiz': typeof QuizRoute
+  '/support': typeof SupportRoute
   '/workout': typeof WorkoutRoute
+  '/api/webhooks/cakto': typeof ApiWebhooksCaktoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/quiz' | '/workout'
+  fullPaths:
+    '/' | '/login' | '/quiz' | '/support' | '/workout' | '/api/webhooks/cakto'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/quiz' | '/workout'
-  id: '__root__' | '/' | '/quiz' | '/workout'
+  to: '/' | '/login' | '/quiz' | '/support' | '/workout' | '/api/webhooks/cakto'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/quiz'
+    | '/support'
+    | '/workout'
+    | '/api/webhooks/cakto'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   QuizRoute: typeof QuizRoute
+  SupportRoute: typeof SupportRoute
   WorkoutRoute: typeof WorkoutRoute
+  ApiWebhooksCaktoRoute: typeof ApiWebhooksCaktoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/workout': {
-      id: '/workout'
-      path: '/workout'
-      fullPath: '/workout'
-      preLoaderRoute: typeof WorkoutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/quiz': {
@@ -75,11 +120,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuizRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workout': {
+      id: '/workout'
+      path: '/workout'
+      fullPath: '/workout'
+      preLoaderRoute: typeof WorkoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/cakto': {
+      id: '/api/webhooks/cakto'
+      path: '/api/webhooks/cakto'
+      fullPath: '/api/webhooks/cakto'
+      preLoaderRoute: typeof ApiWebhooksCaktoRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -87,9 +146,22 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   QuizRoute: QuizRoute,
+  SupportRoute: SupportRoute,
   WorkoutRoute: WorkoutRoute,
+  ApiWebhooksCaktoRoute: ApiWebhooksCaktoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

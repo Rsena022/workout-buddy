@@ -7,10 +7,20 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { LogOut, Palette, UserRound } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import {
+  applyTheme,
+  getSavedTheme,
+  saveTheme,
+  THEME_LABELS,
+  THEMES,
+  type AppTheme,
+} from "../utils/theme";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
 
 function NotFoundComponent() {
   return (
@@ -103,8 +113,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{var t=localStorage.getItem("forjar-theme");if(["original","aurora","ocean","eclipse"].includes(t)){document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t==="original"||t==="eclipse"?"dark":"light"}}catch(e){}',
+          }}
+        />
         <HeadContent />
       </head>
       <body>
@@ -115,7 +131,42 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function ThemePicker() {
+  const [theme, setTheme] = useState<AppTheme>("original");
+
+  useEffect(() => {
+    const saved = getSavedTheme();
+    setTheme(saved);
+    applyTheme(saved);
+  }, []);
+
+  function changeTheme(next: AppTheme) {
+    setTheme(next);
+    saveTheme(next);
+  }
+
+  return (
+    <label className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5 text-muted-foreground">
+      <Palette className="h-3.5 w-3.5 text-brand" aria-hidden="true" />
+      <span className="sr-only">Tema visual</span>
+      <select
+        aria-label="Tema visual"
+        value={theme}
+        onChange={(event) => changeTheme(event.target.value as AppTheme)}
+        className="theme-select max-w-24 bg-transparent text-xs font-semibold text-foreground outline-none sm:max-w-none"
+      >
+        {THEMES.map((value) => (
+          <option key={value} value={value}>
+            {THEME_LABELS[value]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function SiteHeader() {
+  const { user, accessStatus, signOut } = useAuth();
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
@@ -124,15 +175,44 @@ function SiteHeader() {
           Forjar
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          <Link to="/" className="rounded-md px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/"
+            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground sm:block"
+          >
             Início
           </Link>
           <Link
             to="/workout"
-            className="rounded-md px-3 py-2 text-muted-foreground hover:text-foreground"
+            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground md:block"
           >
             Meu treino
           </Link>
+          <Link
+            to="/support"
+            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground lg:block"
+          >
+            Ajuda
+          </Link>
+          <ThemePicker />
+          {user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              title={user.email || "Sair"}
+              className="ml-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold"
+            >
+              <UserRound className="h-3.5 w-3.5 text-brand" />
+              <span className="hidden sm:inline">{accessStatus === "active" ? "Minha conta" : "Conta"}</span>
+              <LogOut className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="ml-1 hidden rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold sm:block"
+            >
+              Entrar
+            </Link>
+          )}
           <Link to="/quiz" className="ml-2 rounded-md btn-brand px-4 py-2 font-semibold">
             Montar treino
           </Link>
@@ -158,13 +238,15 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col">
-        <SiteHeader />
-        <main className="flex-1">
-          <Outlet />
-        </main>
-        <SiteFooter />
-      </div>
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+          <SiteFooter />
+        </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

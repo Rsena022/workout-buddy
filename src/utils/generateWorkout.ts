@@ -193,7 +193,7 @@ function isBeginnerExperience(experience: UserProfile["experience"]): boolean {
   );
 }
 
-function beginnerFriendlyScore(exercise: Exercise): number {
+function beginnerFriendlyScore(exercise: Exercise, profile?: UserProfile): number {
   const name = exercise.name.toLowerCase();
   const equipments = exercise.equipments.map((item) => item.toLowerCase());
   let score = 0;
@@ -211,7 +211,43 @@ function beginnerFriendlyScore(exercise: Exercise): number {
     )
   )
     score -= 20;
+  if (profile && profile.age >= 60) {
+    if (/(machine|supported|seated|lying)/.test(name)) score += 4;
+    if (/(jump|burpee|box jump|depth jump)/.test(name)) score -= 12;
+  }
+  if (profile?.trainingStyle === "machines") {
+    if (equipments.some((item) => ["leverage machine", "cable", "smith machine"].includes(item)))
+      score += 7;
+    if (equipments.includes("barbell")) score -= 2;
+  }
+  if (profile?.trainingStyle === "free_weights") {
+    if (equipments.some((item) => ["dumbbell", "barbell", "kettlebell"].includes(item))) score += 6;
+  }
+  if (profile?.trainingStyle === "bodyweight") {
+    if (equipments.includes("body weight")) score += 8;
+    else score -= 2;
+  }
+  if (profile?.trainingStyle === "guided" && /(machine|supported|seated|lying)/.test(name)) score += 6;
   return score;
+}
+
+function coachingCuesFor(pattern: string): string[] {
+  if (pattern.includes("Agachamento"))
+    return ["Mantenha os pés firmes no chão.", "Desça apenas até onde preserve o controle."];
+  if (pattern.includes("quadril"))
+    return ["Mantenha a coluna neutra.", "Conduza o movimento com quadris e glúteos."];
+  if (pattern.includes("Empurrar"))
+    return ["Mantenha escápulas estáveis.", "Evite travar as articulações com impacto."];
+  if (pattern.includes("Puxar"))
+    return ["Inicie aproximando as escápulas.", "Evite usar impulso do tronco."];
+  if (pattern === "Core")
+    return ["Mantenha o abdômen ativo.", "Interrompa antes de perder a posição da coluna."];
+  return ["Use amplitude confortável e controlada.", "Interrompa a série se a técnica se deteriorar."];
+}
+
+function progressionRuleFor(repetitions: string, targetRir: number): string {
+  const upper = repetitions.match(/(\d+)\s*$/)?.[1] ?? "o limite superior";
+  return `Quando alcançar ${upper} repetições em todas as séries mantendo ${targetRir} repetições em reserva e boa técnica, aumente a menor carga disponível na próxima sessão.`;
 }
 
 function priorityCategory(priority: string): string {
@@ -228,6 +264,9 @@ function toWorkoutExercise(
   const { sets, reps, rest } = setsRepsRest(goal, profile.experience, compound);
   const namePt = translateExerciseName(ex.name);
   const category = categoryOf(ex);
+  const pattern = movementPattern(ex.name, category);
+  const beginner = isBeginnerExperience(profile.experience);
+  const targetRir = beginner ? 3 : goal === "strength" ? 2 : 2;
   return {
     exerciseId: ex.exerciseId,
     namePt,
@@ -236,12 +275,22 @@ function toWorkoutExercise(
     primaryMuscle: primaryMusclePt(ex),
     secondaryMuscles: (ex.secondaryMuscles || []).map(translateMuscle),
     equipment: ex.equipments.map(equipmentPt),
-    movementPattern: movementPattern(ex.name, category),
+    movementPattern: pattern,
     sets,
     repetitions: reps,
     restSeconds: rest,
     instructions: ex.instructions || [],
     order,
+    targetRir,
+    tempo: compound ? "2-1-1" : "2-1-2",
+    warmup: compound
+      ? [
+          "1 série leve de 10 a 12 repetições para praticar o movimento.",
+          ...(beginner ? [] : ["1 série intermediária de 6 a 8 repetições antes da carga de trabalho."]),
+        ]
+      : [],
+    coachingCues: coachingCuesFor(pattern),
+    progressionRule: progressionRuleFor(reps, targetRir),
   };
 }
 
@@ -252,7 +301,7 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
       equipmentAllowed(e, profile) &&
       limitationAllows(e, profile) &&
       dislikedFilter(e, profile) &&
-      (!beginner || beginnerFriendlyScore(e) > -10),
+      (!beginner || beginnerFriendlyScore(e, profile) > -10),
   );
   const division = pickDivision(profile.daysPerWeek, profile.experience);
   const exPerDay = exerciseCountForTime(profile.minutesPerSession);
@@ -264,7 +313,7 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   for (const c of Object.keys(byCat)) {
     byCat[c].sort((a, b) => {
       if (beginner) {
-        const beginnerDifference = beginnerFriendlyScore(b) - beginnerFriendlyScore(a);
+        const beginnerDifference = beginnerFriendlyScore(b, profile) - beginnerFriendlyScore(a, profile);
         if (beginnerDifference !== 0) return beginnerDifference;
       }
       const cd = Number(isCompound(b)) - Number(isCompound(a));
@@ -353,6 +402,7 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   });
 
   const safetyMessages: string[] = [];
+  const personalConsiderations: string[] = [];
   if (profile.age < 18)
     safetyMessages.push(
       "Menor de 18 anos: recomendamos acompanhamento de um responsável e de um profissional de Educação Física.",
@@ -365,6 +415,12 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
     safetyMessages.push(
       "Iniciantes se beneficiam mais de consistência e recuperação do que de alta frequência. Considere começar com menos dias por semana.",
     );
+  if (profile.activityLevel === "sedentary")
+    personalConsiderations.push(
+      "Como sua rotina atual é mais sedentária, comece com intensidade moderada e valorize a recuperação entre as sessões.",
+    );
+  if (profile.additionalNotes?.trim())
+    personalConsiderations.push(`Observação informada no questionário: ${profile.additionalNotes.trim()}`);
 
   const cardio =
     profile.includeCardio === "yes" ||
@@ -372,7 +428,10 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
       (profile.goal === "fat_loss" || profile.goal === "conditioning"))
       ? {
           frequency: profile.goal === "fat_loss" || profile.goal === "conditioning" ? 3 : 2,
-          duration: profile.conditioning === "low" ? "15-25 min" : "20-40 min",
+          duration:
+            profile.conditioning === "low" || profile.activityLevel === "sedentary"
+              ? "15-25 min"
+              : "20-40 min",
           intensity: "Leve a moderada",
           suggestions: ["Caminhada", "Bicicleta", "Esteira", "Elíptico"],
         }
@@ -397,6 +456,17 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
     days,
     cardio,
     safetyMessages,
+    personalConsiderations,
+    program: {
+      durationWeeks: 4,
+      progressionModel: "double_progression",
+      weeklyGuidance: [
+        "Semana 1: conheça os exercícios e termine as séries com aproximadamente 3 repetições em reserva.",
+        "Semana 2: tente acrescentar uma repetição por série mantendo a execução.",
+        "Semana 3: alcance o topo da faixa de repetições antes de aumentar a carga.",
+        "Semana 4: mantenha ou reduza levemente a carga se houver fadiga acumulada e revise sua evolução.",
+      ],
+    },
   };
 }
 
@@ -405,32 +475,17 @@ export function replaceExerciseInPlan(
   dayId: string,
   exerciseId: string,
   library: Exercise[],
+  replacementExerciseId?: string,
 ): WorkoutPlan {
   const day = plan.days.find((d) => d.id === dayId);
   if (!day) return plan;
   const current = day.exercises.find((e) => e.exerciseId === exerciseId);
   if (!current) return plan;
-  const usedIds = new Set(day.exercises.map((e) => e.exerciseId));
-  const currentCategory = current.primaryMuscle;
-  const currentPattern = current.movementPattern;
-
-  const candidates = library
-    .filter(
-      (e) =>
-        equipmentAllowed(e, plan.profile) &&
-        limitationAllows(e, plan.profile) &&
-        dislikedFilter(e, plan.profile),
-    )
-    .filter((e) => !usedIds.has(e.exerciseId))
-    .filter(
-      (e) =>
-        primaryMusclePt(e) === currentCategory ||
-        movementPattern(e.name, categoryOf(e)) === currentPattern,
-    )
-    .sort((a, b) => a.exerciseId.localeCompare(b.exerciseId));
+  const candidates = replacementCandidates(plan, dayId, exerciseId, library);
 
   if (candidates.length === 0) return plan;
-  const replacement = candidates[0];
+  const replacement =
+    candidates.find((candidate) => candidate.exerciseId === replacementExerciseId) || candidates[0];
   const newEx: WorkoutExercise = {
     ...toWorkoutExercise(replacement, current.order, plan.profile, plan.profile.goal),
     sets: current.sets,
@@ -448,4 +503,40 @@ export function replaceExerciseInPlan(
           },
     ),
   };
+}
+
+export function replacementCandidates(
+  plan: WorkoutPlan,
+  dayId: string,
+  exerciseId: string,
+  library: Exercise[],
+  limit = 3,
+): Exercise[] {
+  const day = plan.days.find((candidate) => candidate.id === dayId);
+  const current = day?.exercises.find((candidate) => candidate.exerciseId === exerciseId);
+  if (!day || !current) return [];
+  const usedIds = new Set(day.exercises.map((exercise) => exercise.exerciseId));
+  const currentCategory = current.primaryMuscle;
+  const currentPattern = current.movementPattern;
+  const beginner = isBeginnerExperience(plan.profile.experience);
+  return library
+    .filter(
+      (e) =>
+        equipmentAllowed(e, plan.profile) &&
+        limitationAllows(e, plan.profile) &&
+        dislikedFilter(e, plan.profile) &&
+        (!beginner || beginnerFriendlyScore(e, plan.profile) > -10),
+    )
+    .filter((e) => !usedIds.has(e.exerciseId))
+    .filter(
+      (e) =>
+        primaryMusclePt(e) === currentCategory ||
+        movementPattern(e.name, categoryOf(e)) === currentPattern,
+    )
+    .sort(
+      (a, b) =>
+        beginnerFriendlyScore(b, plan.profile) - beginnerFriendlyScore(a, plan.profile) ||
+        a.exerciseId.localeCompare(b.exerciseId),
+    )
+    .slice(0, limit);
 }

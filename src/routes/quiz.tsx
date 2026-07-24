@@ -2,10 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import type { UserProfile } from "@/types";
+import { PaidAccessGate } from "@/components/paid-access-gate";
 import { storage } from "@/utils/storage";
 import { fetchAllExercises } from "@/services/exerciseApi";
 import { selectExerciseLibrary } from "@/utils/library";
 import { generateWorkoutPlanWithVerifiedMedia } from "@/utils/validateWorkoutMedia";
+import { useAuth } from "@/contexts/auth-context";
+import { saveProfileAndPlan } from "@/services/cloudData";
 
 export const Route = createFileRoute("/quiz")({
   head: () => ({
@@ -14,8 +17,12 @@ export const Route = createFileRoute("/quiz")({
       { name: "description", content: "Responda ao quiz para receber seu treino personalizado." },
     ],
   }),
-  component: QuizPage,
+  component: ProtectedQuizPage,
 });
+
+function ProtectedQuizPage() {
+  return <PaidAccessGate><QuizPage /></PaidAccessGate>;
+}
 
 const EQUIPMENT_OPTIONS = [
   "dumbbell",
@@ -71,6 +78,7 @@ const TOTAL_STEPS = 15;
 
 function QuizPage() {
   const navigate = useNavigate();
+  const { user, accessStatus } = useAuth();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>({
     equipment: [],
@@ -86,7 +94,7 @@ function QuizPage() {
   function set<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setAnswers((a) => ({ ...a, [key]: value }));
   }
-  function setNumber(key: "age" | "heightCm" | "weightKg", rawValue: string) {
+  function setNumber(key: "age", rawValue: string) {
     const digitsOnly = rawValue.replace(/\D/g, "");
     const normalized = digitsOnly.replace(/^0+(?=\d)/, "");
     setAnswers((current) => ({
@@ -111,16 +119,11 @@ function QuizPage() {
   function canContinue(): boolean {
     switch (step) {
       case 1:
-        return !!answers.sex;
+        return !!answers.trainingStyle;
       case 2:
         return typeof answers.age === "number" && answers.age >= 16 && answers.age <= 100;
       case 3:
-        return (
-          !!answers.heightCm &&
-          !!answers.weightKg &&
-          answers.heightCm! > 80 &&
-          answers.weightKg! > 25
-        );
+        return !!answers.activityLevel;
       case 4:
         return !!answers.goal;
       case 5:
@@ -217,6 +220,10 @@ function QuizPage() {
       if (verified.library.length !== library!.length) storage.saveLibrary(verified.library);
       storage.savePlan(plan);
       storage.saveProgress({ completed: {}, updatedAt: new Date().toISOString() });
+      if (user && accessStatus === "active") {
+        setProcessing("Salvando seu plano na conta...");
+        await saveProfileAndPlan(user.id, profile, plan);
+      }
       navigate({ to: "/workout" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -295,14 +302,16 @@ function QuizPage() {
 
       <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
         {step === 1 && (
-          <Q title="Qual é o seu sexo?">
+          <Q title="Como você prefere realizar seus exercícios?" subtitle="Isso ajuda a escolher movimentos mais confortáveis para você.">
             <Choices
-              value={answers.sex}
-              onChange={(v) => set("sex", v as UserProfile["sex"])}
+              value={answers.trainingStyle}
+              onChange={(v) => set("trainingStyle", v as UserProfile["trainingStyle"])}
               options={[
-                { value: "male", label: "Masculino" },
-                { value: "female", label: "Feminino" },
-                { value: "not_informed", label: "Prefiro não informar" },
+                { value: "guided", label: "Prefiro exercícios simples e guiados" },
+                { value: "machines", label: "Gosto mais de máquinas e polias" },
+                { value: "free_weights", label: "Gosto de halteres e barras" },
+                { value: "bodyweight", label: "Prefiro exercícios com o peso corporal" },
+                { value: "mixed", label: "Quero uma combinação variada" },
               ]}
             />
           </Q>
@@ -326,33 +335,17 @@ function QuizPage() {
           </Q>
         )}
         {step === 3 && (
-          <Q title="Qual é a sua altura e seu peso atual?">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm">
-                <span className="mb-1 block text-muted-foreground">Altura (cm)</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={answers.heightCm ?? ""}
-                  onChange={(e) => setNumber("heightCm", e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                  placeholder="170"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block text-muted-foreground">Peso (kg)</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={answers.weightKg ?? ""}
-                  onChange={(e) => setNumber("weightKg", e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3"
-                  placeholder="70"
-                />
-              </label>
-            </div>
+          <Q title="Como está seu nível de atividade atualmente?">
+            <Choices
+              value={answers.activityLevel}
+              onChange={(v) => set("activityLevel", v as UserProfile["activityLevel"])}
+              options={[
+                { value: "sedentary", label: "Passo a maior parte do dia sentado(a)" },
+                { value: "light", label: "Faço algumas caminhadas ou atividades leves" },
+                { value: "moderate", label: "Sou ativo(a) algumas vezes por semana" },
+                { value: "active", label: "Tenho uma rotina fisicamente ativa" },
+              ]}
+            />
           </Q>
         )}
         {step === 4 && (

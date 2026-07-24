@@ -1,4 +1,13 @@
-import type { Exercise, StoredData, UserProfile, WorkoutPlan, WorkoutProgress } from "@/types";
+import type {
+  Exercise,
+  StoredData,
+  UserProfile,
+  WorkoutDay,
+  WorkoutPlan,
+  WorkoutProgress,
+  WorkoutSession,
+} from "@/types";
+import { emptyPerformanceSets } from "@/utils/progression";
 
 const KEY = "forjar-v1";
 const CURRENT_VERSION = 1;
@@ -46,6 +55,51 @@ export const storage = {
   },
   saveProgress(progress: WorkoutProgress) {
     write({ ...read(), progress });
+  },
+  getSessions(): WorkoutSession[] {
+    return read().sessions || [];
+  },
+  getActiveSession(): WorkoutSession | undefined {
+    return read().activeSession;
+  },
+  startSession(plan: WorkoutPlan, day: WorkoutDay): WorkoutSession {
+    const existing = read().activeSession;
+    if (existing?.planId === plan.id && existing.dayId === day.id) return existing;
+    const session: WorkoutSession = {
+      id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      planId: plan.id,
+      dayId: day.id,
+      dayName: day.name,
+      startedAt: new Date().toISOString(),
+      exercises: day.exercises.map((exercise) => ({
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.namePt,
+        sets: emptyPerformanceSets(exercise),
+      })),
+    };
+    write({ ...read(), activeSession: session });
+    return session;
+  },
+  saveActiveSession(activeSession: WorkoutSession) {
+    write({ ...read(), activeSession });
+  },
+  completeSession(session: WorkoutSession): WorkoutSession {
+    const data = read();
+    const completedAt = new Date();
+    const startedAt = new Date(session.startedAt);
+    const completed: WorkoutSession = {
+      ...session,
+      completedAt: completedAt.toISOString(),
+      durationSeconds: Math.max(0, Math.round((completedAt.getTime() - startedAt.getTime()) / 1000)),
+    };
+    const sessions = [completed, ...(data.sessions || []).filter((item) => item.id !== completed.id)].slice(
+      0,
+      200,
+    );
+    const next = { ...data, sessions };
+    delete next.activeSession;
+    write(next);
+    return completed;
   },
   getLibrary(): Exercise[] | undefined {
     const d = read();

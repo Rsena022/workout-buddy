@@ -120,9 +120,48 @@ export const exerciseNameMap: Record<string, string> = {
   "push-up inside leg kick": "Flexão de braço com chute interno",
   "barbell seated bradford rocky press": "Desenvolvimento Bradford sentado com barra",
   "hip raise (bent knee)": "Elevação de quadril com joelhos flexionados",
+  "bodyweight squatting row": "Remada com agachamento usando o peso corporal",
+  "body weight squatting row": "Remada com agachamento usando o peso corporal",
+  "inverse leg curl (on pull-up cable machine)": "Flexão inversa de joelhos na polia alta",
+  "inverse leg curl on pull-up cable machine": "Flexão inversa de joelhos na polia alta",
+  "resistance band seated chest press": "Supino sentado com elástico",
+  "seated calf stretch (male)": "Alongamento de panturrilha sentado",
+  "seated calf stretch (female)": "Alongamento de panturrilha sentado",
+  "dumbbell bench seated press": "Desenvolvimento sentado com halteres",
+  "dumbbell seated bent over triceps extension": "Extensão de tríceps sentado com halteres",
+  "cable lateral pulldown with v-bar": "Puxada lateral na polia com barra V",
+  "lever lying leg curl": "Mesa flexora na máquina articulada",
+  "standing calf raise (on a staircase)": "Elevação de panturrilha em pé no degrau",
+  "dumbbell lying rear lateral raise": "Elevação lateral posterior deitado com halteres",
+  "cable lying close-grip curl": "Rosca direta deitado na polia com pegada fechada",
+  "bodyweight incline side plank": "Prancha lateral inclinada com peso corporal",
+  "bent knee lying twist (male)": "Rotação de tronco deitado com joelhos flexionados",
+  "bent knee lying twist (female)": "Rotação de tronco deitado com joelhos flexionados",
+  "dumbbell single leg calf raise": "Elevação unilateral de panturrilha com halter",
+  "dumbbell alternate seated hammer curl": "Rosca martelo alternada sentada com halteres",
+  "hanging straight leg raise": "Elevação de pernas estendidas na barra fixa",
+  "dumbbell decline hammer press": "Supino declinado com halteres em pegada neutra",
 };
 
 const exerciseTermMap: [string, string][] = [
+  ["pull-up cable machine", "polia alta"],
+  ["pull up cable machine", "polia alta"],
+  ["smith machine", "máquina Smith"],
+  ["leverage machine", "máquina articulada"],
+  ["rear lateral raise", "elevação lateral posterior"],
+  ["straight leg raise", "elevação de pernas estendidas"],
+  ["lateral pulldown", "puxada lateral"],
+  ["side plank", "prancha lateral"],
+  ["calf raise", "elevação de panturrilha"],
+  ["hammer curl", "rosca martelo"],
+  ["hammer press", "pressão com pegada neutra"],
+  ["leg extension", "cadeira extensora"],
+  ["leg curl", "flexão de joelhos"],
+  ["chest press", "supino"],
+  ["shoulder press", "desenvolvimento de ombros"],
+  ["resistance band", "elástico"],
+  ["bent over", "inclinado"],
+  ["squatting", "com agachamento"],
   ["ez barbell", "barra W"],
   ["ez bar", "barra W"],
   ["body weight", "peso corporal"],
@@ -138,15 +177,22 @@ const exerciseTermMap: [string, string][] = [
   ["dumbbell", "halter"],
   ["kettlebell", "kettlebell"],
   ["cable", "polia"],
+  ["lever", "máquina articulada"],
   ["machine", "máquina"],
   ["band", "elástico"],
   ["standing", "em pé"],
   ["seated", "sentado"],
   ["lying", "deitado"],
+  ["kneeling", "ajoelhado"],
   ["incline", "inclinado"],
   ["decline", "declinado"],
   ["reverse", "invertido"],
+  ["inverse", "invertido"],
   ["alternating", "alternado"],
+  ["assisted", "assistido"],
+  ["wide grip", "pegada aberta"],
+  ["close grip", "pegada fechada"],
+  ["neutral grip", "pegada neutra"],
   ["row", "remada"],
   ["curl", "rosca"],
   ["extension", "extensão"],
@@ -155,21 +201,63 @@ const exerciseTermMap: [string, string][] = [
   ["squat", "agachamento"],
   ["press", "pressão"],
   ["stretch", "alongamento"],
+  ["leg", "perna"],
+  ["calf", "panturrilha"],
+  ["arm", "braço"],
+  ["triceps", "tríceps"],
+  ["biceps", "bíceps"],
+  ["bench", "banco"],
+  ["v-bar", "barra V"],
+  ["staircase", "degrau"],
+  ["grip", "pegada"],
+  ["high", "alto"],
+  ["low", "baixo"],
   ["with", "com"],
+  ["without", "sem"],
+  ["male", ""],
+  ["female", ""],
 ];
 
 export function toTitle(s: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function toSentenceCase(value: string): string {
+  const normalized = value.trim().replace(/\s+/g, " ");
+  if (!normalized) return normalized;
+  return normalized.charAt(0).toLocaleUpperCase("pt-BR") + normalized.slice(1);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function translateExerciseName(originalName: string): string {
-  const key = originalName.toLowerCase().trim();
+  const key = originalName
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .trim()
+    .replace(/\s+/g, " ");
   if (exerciseNameMap[key]) return exerciseNameMap[key];
+
   let translated = key;
   for (const [source, target] of exerciseTermMap) {
-    translated = translated.replaceAll(source, target);
+    const pattern = new RegExp(`\\b${escapeRegExp(source).replaceAll("\\ ", "\\s+")}\\b`, "gi");
+    translated = translated.replace(pattern, target);
   }
-  return toTitle(translated);
+
+  translated = translated
+    .replace(/\(\s*on\s+/gi, "(na ")
+    .replace(/\(\s*with\s+/gi, "(com ")
+    .replace(/\bon\b/gi, "na")
+    .replace(/\bthe\b/gi, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s+([,)])/g, "$1")
+    .replace(/([(])\s+/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return toSentenceCase(translated);
 }
 
 export function translateMuscle(muscle: string): string {

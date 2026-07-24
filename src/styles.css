@@ -60,14 +60,103 @@
   --brand-foreground: oklch(0.15 0.02 260);
 }
 
+:root[data-theme="aurora"] {
+  --background: oklch(0.985 0.012 330);
+  --foreground: oklch(0.24 0.035 300);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.035 300);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.035 300);
+  --primary: oklch(0.59 0.22 305);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.035 325);
+  --secondary-foreground: oklch(0.3 0.05 305);
+  --muted: oklch(0.95 0.025 305);
+  --muted-foreground: oklch(0.52 0.04 300);
+  --accent: oklch(0.94 0.045 255);
+  --accent-foreground: oklch(0.28 0.06 280);
+  --border: oklch(0.88 0.035 305);
+  --input: oklch(0.88 0.035 305);
+  --ring: oklch(0.63 0.2 305);
+  --brand: oklch(0.62 0.22 315);
+  --brand-foreground: oklch(0.99 0 0);
+}
+
+:root[data-theme="ocean"] {
+  --background: oklch(0.985 0.012 240);
+  --foreground: oklch(0.23 0.045 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.23 0.045 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.23 0.045 250);
+  --primary: oklch(0.59 0.18 250);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.03 235);
+  --secondary-foreground: oklch(0.28 0.06 250);
+  --muted: oklch(0.95 0.025 240);
+  --muted-foreground: oklch(0.5 0.045 250);
+  --accent: oklch(0.92 0.055 225);
+  --accent-foreground: oklch(0.27 0.07 250);
+  --border: oklch(0.87 0.04 240);
+  --input: oklch(0.87 0.04 240);
+  --ring: oklch(0.64 0.17 240);
+  --brand: oklch(0.63 0.19 245);
+  --brand-foreground: oklch(0.99 0 0);
+}
+
+:root[data-theme="eclipse"] {
+  --background: oklch(0.14 0.025 300);
+  --foreground: oklch(0.98 0.005 300);
+  --card: oklch(0.19 0.035 300);
+  --card-foreground: oklch(0.98 0.005 300);
+  --popover: oklch(0.19 0.035 300);
+  --popover-foreground: oklch(0.98 0.005 300);
+  --primary: oklch(0.73 0.17 300);
+  --primary-foreground: oklch(0.15 0.03 300);
+  --secondary: oklch(0.25 0.04 300);
+  --secondary-foreground: oklch(0.98 0.005 300);
+  --muted: oklch(0.24 0.035 300);
+  --muted-foreground: oklch(0.72 0.04 300);
+  --accent: oklch(0.3 0.06 300);
+  --accent-foreground: oklch(0.98 0.005 300);
+  --border: oklch(0.3 0.045 300);
+  --input: oklch(0.3 0.045 300);
+  --ring: oklch(0.72 0.17 300);
+  --brand: oklch(0.73 0.19 310);
+  --brand-foreground: oklch(0.15 0.03 300);
+}
+
 @layer base {
-  * { border-color: var(--color-border); }
-  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  * {
+    border-color: var(--color-border);
+  }
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+.theme-select option {
+  background-color: #ffffff;
+  color: #172033;
 }
 
 @utility btn-brand {
   background: var(--color-brand);
   color: var(--color-brand-foreground);
-  &:hover { filter: brightness(1.08); }
+  &:hover {
+    filter: brightness(1.08);
+  }
 }
