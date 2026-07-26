@@ -1,11 +1,15 @@
 import type { Exercise } from "@/types";
+import { isGeneralAudienceExercise } from "@/utils/exerciseSuitability";
 
 const API_URL = "https://oss.exercisedb.dev/api/v1/exercises";
 const TIMEOUT_MS = 15000;
 const MAX_PAGES = 100;
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 4;
 const PAGE_SIZE = 25;
-const PAGE_DELAY_MS = 150;
+// Keep requests comfortably spaced because the public API applies strict limits.
+const PAGE_DELAY_MS = 900;
+const RETRY_BASE_DELAY_MS = 1500;
+const MAX_RETRY_DELAY_MS = 12000;
 
 interface ApiResponse {
   success: boolean;
@@ -18,8 +22,37 @@ interface ApiResponse {
   data: unknown[];
 }
 
+export interface ExerciseFetchProgress {
+  exercises: Exercise[];
+  nextCursor?: string;
+  complete: boolean;
+}
+
+interface ExerciseFetchOptions {
+  initialExercises?: Exercise[];
+  after?: string;
+  onPage?: (progress: ExerciseFetchProgress) => void;
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(response: Response | undefined, attempt: number) {
+  const retryAfter = response?.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.min(seconds * 1000, MAX_RETRY_DELAY_MS);
+
+    const retryAt = Date.parse(retryAfter);
+    if (Number.isFinite(retryAt)) {
+      return Math.min(Math.max(retryAt - Date.now(), 0), MAX_RETRY_DELAY_MS);
+    }
+  }
+
+  const exponential = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, MAX_RETRY_DELAY_MS);
+  const jitter = Math.round(Math.random() * 350);
+  return exponential + jitter;
 }
 
 function textArray(value: unknown): string[] {
@@ -68,10 +101,12 @@ async function fetchExercisePage(after?: string): Promise<ApiResponse> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let response: Response | undefined;
     try {
-      const response = await fetch(url.toString(), {
+      response = await fetch(url.toString(), {
         method: "GET",
         headers: { Accept: "application/json" },
+        cache: "force-cache",
         signal: controller.signal,
       });
       console.log(`[ExerciseDB] GET ${url.toString()} -> HTTP ${response.status}`);
@@ -99,7 +134,7 @@ async function fetchExercisePage(after?: string): Promise<ApiResponse> {
         isAbort ? "timeout/abort" : ((err as Error)?.message ?? err),
       );
       if (attempt === MAX_RETRIES) break;
-      await sleep(750 * 2 ** attempt);
+      await sleep(retryDelayMs(response, attempt));
     } finally {
       clearTimeout(timeout);
     }
@@ -107,10 +142,16 @@ async function fetchExercisePage(after?: string): Promise<ApiResponse> {
   throw lastError instanceof Error ? lastError : new Error("Falha ao buscar exercícios");
 }
 
-export async function fetchAllExercises(desiredAmount = 300): Promise<Exercise[]> {
-  const byId = new Map<string, Exercise>();
+export async function fetchAllExercises(
+  desiredAmount = 300,
+  minimumGeneralAudience = 0,
+  options: ExerciseFetchOptions = {},
+): Promise<Exercise[]> {
+  const byId = new Map(
+    (options.initialExercises || []).map((exercise) => [exercise.exerciseId, exercise]),
+  );
   const usedCursors = new Set<string>();
-  let after: string | undefined;
+  let after = options.after;
   let pageCount = 0;
 
   while (byId.size < desiredAmount && pageCount < MAX_PAGES) {
@@ -150,7 +191,29 @@ export async function fetchAllExercises(desiredAmount = 300): Promise<Exercise[]
     });
 
     const nextCursor = result.meta?.nextCursor ?? undefined;
-    if (!result.meta?.hasNextPage || !nextCursor) break;
+    const hasNextPage = Boolean(result.meta?.hasNextPage && nextCursor);
+    options.onPage?.({
+      exercises: Array.from(byId.values()),
+      nextCursor: hasNextPage ? nextCursor : undefined,
+      complete: !hasNextPage,
+    });
+
+    const generalAudienceCount =
+      minimumGeneralAudience > 0
+        ? Array.from(byId.values()).filter(isGeneralAudienceExercise).length
+        : 0;
+    if (
+      minimumGeneralAudience > 0 &&
+      byId.size >= 100 &&
+      generalAudienceCount >= minimumGeneralAudience
+    ) {
+      console.log(
+        `[ExerciseDB] curadoria mínima atingida: ${generalAudienceCount} exercícios comuns.`,
+      );
+      break;
+    }
+
+    if (!hasNextPage || !nextCursor) break;
     if (usedCursors.has(nextCursor)) {
       console.warn("[ExerciseDB] cursor repetido, encerrando paginação.");
       break;

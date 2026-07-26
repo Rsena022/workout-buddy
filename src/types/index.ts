@@ -65,6 +65,7 @@ export interface WorkoutDay {
 export interface WorkoutPlan {
   id: string;
   createdAt: string;
+  curationVersion?: number;
   profile: UserProfile;
   profileSummary: string;
   division: string;

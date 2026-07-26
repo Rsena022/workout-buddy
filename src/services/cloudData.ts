@@ -1,11 +1,7 @@
 import type { UserProfile, WorkoutPlan, WorkoutSession } from "@/types";
 import { supabase } from "@/lib/supabase";
 
-export async function saveProfileAndPlan(
-  userId: string,
-  profile: UserProfile,
-  plan: WorkoutPlan,
-) {
+export async function saveProfileAndPlan(userId: string, profile: UserProfile, plan: WorkoutPlan) {
   if (!supabase) return;
   const { error: profileError } = await supabase.from("profiles").upsert({
     user_id: userId,
@@ -43,11 +39,23 @@ export async function loadActivePlan(userId: string): Promise<WorkoutPlan | unde
   return data?.plan_data as WorkoutPlan | undefined;
 }
 
+export async function updateActivePlan(userId: string, plan: WorkoutPlan) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("workout_plans")
+    .update({ plan_data: plan })
+    .eq("user_id", userId)
+    .eq("active", true);
+  if (error) throw error;
+}
+
 export async function loadRecentSessions(userId: string): Promise<WorkoutSession[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("workout_sessions")
-    .select("id, day_id, day_name, started_at, completed_at, duration_seconds, perceived_effort, notes")
+    .select(
+      "id, day_id, day_name, started_at, completed_at, duration_seconds, perceived_effort, notes",
+    )
     .eq("user_id", userId)
     .not("completed_at", "is", null)
     .order("completed_at", { ascending: false })
@@ -115,7 +123,11 @@ export async function saveCompletedSession(userId: string, session: WorkoutSessi
 
 export async function submitSupportFeedback(
   userId: string,
-  input: { category: "difficulty" | "exercise" | "plan" | "technical" | "other"; rating?: number; message: string },
+  input: {
+    category: "difficulty" | "exercise" | "plan" | "technical" | "other";
+    rating?: number;
+    message: string;
+  },
 ) {
   if (!supabase) throw new Error("Suporte online ainda não configurado");
   const { error } = await supabase.from("support_feedback").insert({

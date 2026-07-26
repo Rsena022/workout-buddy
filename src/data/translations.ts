@@ -141,6 +141,21 @@ export const exerciseNameMap: Record<string, string> = {
   "dumbbell alternate seated hammer curl": "Rosca martelo alternada sentada com halteres",
   "hanging straight leg raise": "Elevação de pernas estendidas na barra fixa",
   "dumbbell decline hammer press": "Supino declinado com halteres em pegada neutra",
+  "lever reverse grip lateral pulldown": "Puxada alta na máquina articulada com pegada supinada",
+  "lever seated row": "Remada sentada na máquina articulada",
+  "lever narrow grip seated row": "Remada sentada na máquina articulada com pegada fechada",
+  "cable seated row": "Remada sentada na polia",
+  "cable seated row with reverse grip": "Remada sentada na polia com pegada supinada",
+  "cable rope elevated seated row": "Remada alta sentada na polia com corda",
+  "cable lat pulldown (pro lat bar)": "Puxada alta na polia com barra longa",
+  "lever seated dip": "Mergulho sentado na máquina articulada",
+  "dumbbell palms in incline bench press": "Supino inclinado com halteres e pegada neutra",
+  "dumbbell decline bench press": "Supino declinado com halteres",
+  "cable decline press": "Supino declinado na polia",
+  "dumbbell full can lateral raise": "Elevação lateral completa com halteres",
+  "lever lateral raise": "Elevação lateral na máquina articulada",
+  "dumbbell lateral raise": "Elevação lateral com halteres",
+  "dumbbell incline shoulder raise": "Elevação de ombros inclinada com halteres",
 };
 
 const exerciseTermMap: [string, string][] = [
@@ -232,13 +247,194 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function equipmentSuffix(key: string): string {
+  if (/\bez barbell\b|\bez bar\b/.test(key)) return "com barra W";
+  if (/\bbarbell\b/.test(key)) return "com barra";
+  if (/\bdumbbell\b/.test(key)) return "com halteres";
+  if (/\bkettlebell\b/.test(key)) return "com kettlebell";
+  if (/\bresistance band\b|\bband\b/.test(key)) return "com elástico";
+  if (/\bcable\b/.test(key)) return "na polia";
+  if (/\bsmith machine\b/.test(key)) return "na máquina Smith";
+  if (/\bleverage machine\b|\blever\b/.test(key)) return "na máquina articulada";
+  if (/\bmachine\b/.test(key)) return "na máquina";
+  if (/\bbody ?weight\b/.test(key)) return "com peso corporal";
+  return "";
+}
+
+function gripSuffix(key: string): string {
+  if (/\bpalms in\b|\bneutral grip\b|\bhammer\b/.test(key)) return "com pegada neutra";
+  if (/\breverse grip\b|\bunderhand\b|\bsupinated\b/.test(key)) {
+    return "com pegada supinada";
+  }
+  if (/\boverhand\b|\bpronated\b/.test(key)) return "com pegada pronada";
+  if (/\bclose grip\b|\bnarrow grip\b/.test(key)) return "com pegada fechada";
+  if (/\bwide grip\b/.test(key)) return "com pegada aberta";
+  return "";
+}
+
+function attachmentSuffix(key: string): string {
+  if (/\brope\b/.test(key)) return "com corda";
+  if (/\bv-bar\b/.test(key)) return "com barra V";
+  if (/\bstraight bar\b/.test(key)) return "com barra reta";
+  if (/\bpro lat bar\b/.test(key)) return "com barra longa";
+  return "";
+}
+
+function joinExerciseName(base: string, ...details: string[]): string {
+  const uniqueDetails = details.filter(
+    (detail, index, all) => detail && all.indexOf(detail) === index,
+  );
+  return toSentenceCase([base, ...uniqueDetails].join(" "));
+}
+
+function naturalExerciseTranslation(key: string): string | undefined {
+  const equipment = equipmentSuffix(key);
+  const grip = gripSuffix(key);
+  const attachment = attachmentSuffix(key);
+  const unilateral = /\b(?:single|one)[- ]arm\b|\bunilateral\b/.test(key) ? "unilateral" : "";
+
+  if (/\blat(?:eral)? pulldown\b|\bpulldown\b|\bpull-down\b/.test(key)) {
+    return joinExerciseName("Puxada alta", equipment, grip, attachment, unilateral);
+  }
+
+  if (/\brow\b/.test(key)) {
+    const variation = /\bseated\b/.test(key)
+      ? "Remada sentada"
+      : /\bbent over\b/.test(key)
+        ? "Remada curvada"
+        : /\bupright\b|\belevated\b/.test(key)
+          ? "Remada alta"
+          : "Remada";
+    const support = /\bchest supported\b/.test(key) ? "com apoio no peito" : "";
+    return joinExerciseName(variation, equipment, support, grip, attachment, unilateral);
+  }
+
+  if (/\bbench press\b|\bchest press\b/.test(key)) {
+    const variation = /\bincline\b/.test(key)
+      ? "Supino inclinado"
+      : /\bdecline\b/.test(key)
+        ? "Supino declinado"
+        : /\bseated\b/.test(key)
+          ? "Supino sentado"
+          : "Supino reto";
+    return joinExerciseName(variation, equipment, grip, attachment, unilateral);
+  }
+
+  if (/\bshoulder press\b|\boverhead press\b|\bmilitary press\b/.test(key)) {
+    const position = /\bseated\b/.test(key) ? "sentado" : /\bstanding\b/.test(key) ? "em pé" : "";
+    return joinExerciseName("Desenvolvimento de ombros", position, equipment, grip, unilateral);
+  }
+
+  if (/\blateral raise\b/.test(key)) {
+    const position = /\bseated\b/.test(key)
+      ? "sentada"
+      : /\bincline\b/.test(key)
+        ? "inclinada"
+        : "";
+    const posterior = /\brear\b/.test(key) ? "posterior" : "";
+    return joinExerciseName("Elevação lateral", posterior, position, equipment, unilateral);
+  }
+
+  if (/\bfront raise\b/.test(key)) {
+    return joinExerciseName("Elevação frontal", equipment, grip, unilateral);
+  }
+
+  if (/\brear delt fly\b|\breverse fly\b|\breverse pec deck\b/.test(key)) {
+    return joinExerciseName("Crucifixo invertido", equipment, grip, unilateral);
+  }
+
+  if (/\bface pull\b/.test(key)) {
+    return joinExerciseName("Face pull", equipment || "na polia", attachment);
+  }
+
+  if (/\bcurl\b/.test(key)) {
+    const base = /\bhammer\b/.test(key)
+      ? "Rosca martelo"
+      : /\bpreacher\b/.test(key)
+        ? "Rosca Scott"
+        : /\bconcentration\b/.test(key)
+          ? "Rosca concentrada"
+          : "Rosca direta";
+    const position = /\bseated\b/.test(key) ? "sentada" : /\bstanding\b/.test(key) ? "em pé" : "";
+    const alternating = /\balternat(?:e|ing)\b/.test(key) ? "alternada" : "";
+    const curlGrip = /\bhammer\b/.test(key) ? "" : grip;
+    return joinExerciseName(base, alternating, position, equipment, curlGrip, unilateral);
+  }
+
+  if (/\btriceps? pushdown\b|\bpush-down\b/.test(key)) {
+    return joinExerciseName("Tríceps na polia", attachment, grip, unilateral);
+  }
+
+  if (/\btriceps? extension\b|\bfrench press\b|\bskull crusher\b/.test(key)) {
+    const position = /\bseated\b/.test(key) ? "sentada" : /\bstanding\b/.test(key) ? "em pé" : "";
+    return joinExerciseName("Extensão de tríceps", position, equipment, attachment, unilateral);
+  }
+
+  if (/\bleg press\b/.test(key)) return joinExerciseName("Leg press", equipment);
+  if (/\bleg extension\b/.test(key)) return joinExerciseName("Cadeira extensora", equipment);
+  if (/\bleg curl\b/.test(key)) {
+    const base = /\bseated\b/.test(key) ? "Cadeira flexora" : "Mesa flexora";
+    return joinExerciseName(base, equipment);
+  }
+
+  if (/\bsquat\b/.test(key)) {
+    const variation = /\bgoblet\b/.test(key)
+      ? "Agachamento goblet"
+      : /\bfront\b/.test(key)
+        ? "Agachamento frontal"
+        : /\bhack\b/.test(key)
+          ? "Agachamento hack"
+          : "Agachamento";
+    return joinExerciseName(variation, equipment);
+  }
+
+  if (/\bdeadlift\b/.test(key)) {
+    const variation = /\bromanian\b/.test(key)
+      ? "Levantamento terra romeno"
+      : /\bsumo\b/.test(key)
+        ? "Levantamento terra sumô"
+        : "Levantamento terra";
+    return joinExerciseName(variation, equipment);
+  }
+
+  if (/\blunge\b/.test(key)) {
+    const variation = /\bwalking\b/.test(key)
+      ? "Avanço caminhando"
+      : /\breverse\b/.test(key)
+        ? "Avanço reverso"
+        : "Avanço";
+    return joinExerciseName(variation, equipment);
+  }
+
+  if (/\bhip thrust\b/.test(key)) return joinExerciseName("Elevação pélvica", equipment);
+  if (/\bglute bridge\b/.test(key)) return joinExerciseName("Ponte para glúteos", equipment);
+  if (/\bhip abduction\b/.test(key)) return joinExerciseName("Abdução de quadril", equipment);
+  if (/\bhip adduction\b/.test(key)) return joinExerciseName("Adução de quadril", equipment);
+  if (/\bglute kickback\b/.test(key)) return joinExerciseName("Coice para glúteos", equipment);
+
+  if (/\bcalf raise\b|\bcalf press\b/.test(key)) {
+    const position = /\bseated\b/.test(key) ? "sentada" : /\bstanding\b/.test(key) ? "em pé" : "";
+    return joinExerciseName("Elevação de panturrilha", position, equipment, unilateral);
+  }
+
+  if (/\bpush[- ]?up\b/.test(key)) return joinExerciseName("Flexão de braço", grip);
+  if (/\bpull[- ]?up\b/.test(key)) return joinExerciseName("Barra fixa", grip);
+  if (/\bchin[- ]?up\b/.test(key)) return "Barra fixa com pegada supinada";
+  if (/\bdip\b/.test(key)) return joinExerciseName("Mergulho", equipment);
+  if (/\bcrunch\b/.test(key)) return joinExerciseName("Abdominal", equipment);
+  if (/\bplank\b/.test(key)) return joinExerciseName("Prancha", equipment);
+  if (/\bsit[- ]?up\b/.test(key)) return "Abdominal completo";
+  if (/\bmountain climber\b/.test(key)) return "Escalador";
+  if (/\bjumping jack\b/.test(key)) return "Polichinelo";
+
+  return undefined;
+}
+
 export function translateExerciseName(originalName: string): string {
-  const key = originalName
-    .normalize("NFKC")
-    .toLocaleLowerCase("en-US")
-    .trim()
-    .replace(/\s+/g, " ");
+  const key = originalName.normalize("NFKC").toLocaleLowerCase("en-US").trim().replace(/\s+/g, " ");
   if (exerciseNameMap[key]) return exerciseNameMap[key];
+  const naturalTranslation = naturalExerciseTranslation(key);
+  if (naturalTranslation) return naturalTranslation;
 
   let translated = key;
   for (const [source, target] of exerciseTermMap) {

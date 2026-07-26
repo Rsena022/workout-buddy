@@ -1,11 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import type { UserProfile } from "@/types";
 import { PaidAccessGate } from "@/components/paid-access-gate";
 import { storage } from "@/utils/storage";
-import { fetchAllExercises } from "@/services/exerciseApi";
-import { selectExerciseLibrary } from "@/utils/library";
+import {
+  CURATED_LIBRARY_TARGET,
+  MINIMUM_WORKOUT_LIBRARY,
+  loadCuratedExerciseLibrary,
+} from "@/services/exerciseLibrary";
 import { generateWorkoutPlanWithVerifiedMedia } from "@/utils/validateWorkoutMedia";
 import { useAuth } from "@/contexts/auth-context";
 import { saveProfileAndPlan } from "@/services/cloudData";
@@ -21,7 +24,11 @@ export const Route = createFileRoute("/quiz")({
 });
 
 function ProtectedQuizPage() {
-  return <PaidAccessGate><QuizPage /></PaidAccessGate>;
+  return (
+    <PaidAccessGate>
+      <QuizPage />
+    </PaidAccessGate>
+  );
 }
 
 const EQUIPMENT_OPTIONS = [
@@ -88,6 +95,11 @@ function QuizPage() {
   });
   const [processing, setProcessing] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    storage.setUserScope(user?.id);
+    storage.removeLegacyData();
+  }, [user?.id]);
 
   const progress = useMemo(() => (step / TOTAL_STEPS) * 100, [step]);
 
@@ -189,7 +201,7 @@ function QuizPage() {
     setProcessing(stages[0]);
     try {
       const cached = storage.getLibrary();
-      let library = cached && cached.length >= 100 ? cached : undefined;
+      let library = cached && cached.length >= CURATED_LIBRARY_TARGET ? cached : undefined;
       const stagePromise = (async () => {
         for (let i = 0; i < stages.length; i++) {
           setProcessing(stages[i]);
@@ -198,14 +210,13 @@ function QuizPage() {
       })();
       if (!library) {
         try {
-          const all = await fetchAllExercises(150);
-          if (all.length < 50)
+          const all = await loadCuratedExerciseLibrary();
+          if (all.length < MINIMUM_WORKOUT_LIBRARY)
             throw new Error(`API retornou apenas ${all.length} exercícios válidos`);
-          library = selectExerciseLibrary(all, 150);
-          storage.saveLibrary(library);
+          library = all;
         } catch (apiErr) {
           console.error("[ExerciseDB] falha ao carregar da API:", apiErr);
-          if (cached && cached.length > 0) {
+          if (cached && cached.length >= MINIMUM_WORKOUT_LIBRARY) {
             console.warn("[ExerciseDB] usando biblioteca local como fallback.");
             library = cached;
           } else {
@@ -302,7 +313,10 @@ function QuizPage() {
 
       <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
         {step === 1 && (
-          <Q title="Como você prefere realizar seus exercícios?" subtitle="Isso ajuda a escolher movimentos mais confortáveis para você.">
+          <Q
+            title="Como você prefere realizar seus exercícios?"
+            subtitle="Isso ajuda a escolher movimentos mais confortáveis para você."
+          >
             <Choices
               value={answers.trainingStyle}
               onChange={(v) => set("trainingStyle", v as UserProfile["trainingStyle"])}

@@ -24,7 +24,7 @@ import type {
 import { storage } from "@/utils/storage";
 import { replaceExerciseInPlan, replacementCandidates } from "@/utils/generateWorkout";
 import { useHydrated } from "@/lib/use-hydrated";
-import { exerciseGifCandidates } from "@/utils/exerciseMedia";
+import { exerciseGifCandidates, resolveExerciseGif } from "@/utils/exerciseMedia";
 import {
   portugueseInstructions,
   translateExerciseName,
@@ -38,7 +38,10 @@ import {
   loadRecentSessions,
   saveCompletedSession,
   saveProfileAndPlan,
+  updateActivePlan,
 } from "@/services/cloudData";
+import { loadCuratedExerciseLibrary } from "@/services/exerciseLibrary";
+import { isCurrentCuratedPlan } from "@/utils/exerciseSuitability";
 
 export const Route = createFileRoute("/workout")({
   head: () => ({
@@ -51,7 +54,11 @@ export const Route = createFileRoute("/workout")({
 });
 
 function ProtectedWorkoutPage() {
-  return <PaidAccessGate><WorkoutPage /></PaidAccessGate>;
+  return (
+    <PaidAccessGate>
+      <WorkoutPage />
+    </PaidAccessGate>
+  );
 }
 
 function WorkoutPage() {
@@ -67,33 +74,46 @@ function WorkoutPage() {
   const [sessionEffort, setSessionEffort] = useState(7);
   const [sessionNotes, setSessionNotes] = useState("");
   const [sessionHistory, setSessionHistory] = useState<WorkoutSession[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [replacementLoadingId, setReplacementLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
-    setPlan(storage.getPlan());
+    storage.setUserScope(user?.id);
+    storage.removeLegacyData();
+    const localPlan = storage.getPlan();
+    setPlan(localPlan && isCurrentCuratedPlan(localPlan) ? localPlan : undefined);
     setCompleted(storage.getProgress().completed);
     setActiveSession(storage.getActiveSession());
     setSessionHistory(storage.getSessions());
-  }, [hydrated]);
 
-  useEffect(() => {
-    if (!hydrated || !user || accessStatus !== "active") return;
+    if (!user || accessStatus !== "active") {
+      setDataLoading(false);
+      return;
+    }
+
     let cancelled = false;
+    setDataLoading(true);
     Promise.all([loadActivePlan(user.id), loadRecentSessions(user.id)])
       .then(([cloudPlan, cloudSessions]) => {
         if (cancelled) return;
-        const localPlan = storage.getPlan();
-        if (cloudPlan) {
+        if (cloudPlan && isCurrentCuratedPlan(cloudPlan)) {
           setPlan(cloudPlan);
           storage.savePlan(cloudPlan);
-        } else if (localPlan) {
+        } else if (localPlan && isCurrentCuratedPlan(localPlan)) {
           void saveProfileAndPlan(user.id, localPlan.profile, localPlan).catch((error) =>
             console.error("[Cloud] Falha ao importar o plano local:", error),
           );
+        } else {
+          storage.clearPlan();
+          setPlan(undefined);
         }
-        if (cloudSessions.length) setSessionHistory(cloudSessions);
+        setSessionHistory(cloudSessions);
       })
-      .catch((error) => console.error("[Cloud] Falha ao carregar dados:", error));
+      .catch((error) => console.error("[Cloud] Falha ao carregar dados:", error))
+      .finally(() => {
+        if (!cancelled) setDataLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -103,6 +123,12 @@ function WorkoutPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center text-muted-foreground">
         Carregando...
+      </div>
+    );
+  if (dataLoading)
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center text-muted-foreground">
+        Carregando seu treino...
       </div>
     );
   if (!plan) {
@@ -137,19 +163,48 @@ function WorkoutPage() {
     setCompleted(next);
     storage.saveProgress({ completed: next, updatedAt: new Date().toISOString() });
   }
-  function swap(ex: WorkoutExercise) {
-    const library = storage.getLibrary();
-    if (!library) {
-      alert("Biblioteca de exercícios não disponível.");
+  async function swap(ex: WorkoutExercise) {
+    setReplacementLoadingId(ex.exerciseId);
+    let library: Exercise[];
+    try {
+      library = await loadCuratedExerciseLibrary();
+    } catch (error) {
+      console.error("[ExerciseDB] Falha ao carregar opcoes de troca:", error);
+      setReplacementLoadingId(null);
+      alert("Nao foi possivel carregar as opcoes agora. Tente novamente.");
       return;
     }
-    const options = replacementCandidates(plan!, day.id, ex.exerciseId, library, 3);
+    const candidates = replacementCandidates(plan!, day.id, ex.exerciseId, library, 24);
+    const options: Exercise[] = [];
+    const brokenMediaIds = new Set<string>();
+
+    for (let offset = 0; offset < candidates.length && options.length < 6; offset += 6) {
+      const batch = candidates.slice(offset, offset + 6);
+      const verified = await Promise.all(
+        batch.map(async (candidate) => {
+          const gifUrl = await resolveExerciseGif(candidate);
+          if (!gifUrl) {
+            brokenMediaIds.add(candidate.exerciseId);
+            return undefined;
+          }
+          return { ...candidate, gifUrl };
+        }),
+      );
+      options.push(...verified.filter((candidate): candidate is Exercise => Boolean(candidate)));
+    }
+
+    if (brokenMediaIds.size > 0) {
+      storage.saveLibrary(library.filter((candidate) => !brokenMediaIds.has(candidate.exerciseId)));
+    }
+
     if (!options.length) {
+      setReplacementLoadingId(null);
       alert("Não encontramos outra opção compatível com seu perfil e equipamentos.");
       return;
     }
     setReplacementTarget(ex);
-    setReplacementOptions(options);
+    setReplacementOptions(options.slice(0, 6));
+    setReplacementLoadingId(null);
   }
 
   function chooseReplacement(replacement: Exercise) {
@@ -165,6 +220,11 @@ function WorkoutPage() {
     );
     setPlan(updated);
     storage.savePlan(updated);
+    if (user && accessStatus === "active") {
+      void updateActivePlan(user.id, updated).catch((error) =>
+        console.error("[Cloud] Falha ao salvar a troca de exercicio:", error),
+      );
+    }
     setReplacementTarget(null);
     setReplacementOptions([]);
   }
@@ -179,11 +239,7 @@ function WorkoutPage() {
     setActiveSession(session);
   }
 
-  function updateSet(
-    exerciseId: string,
-    setNumber: number,
-    patch: Partial<WorkoutSetPerformance>,
-  ) {
+  function updateSet(exerciseId: string, setNumber: number, patch: Partial<WorkoutSetPerformance>) {
     if (!activeSession) return;
     const next = {
       ...activeSession,
@@ -213,7 +269,10 @@ function WorkoutPage() {
     for (const exercise of day.exercises) nextCompleted[dayKey(exercise)] = true;
     setCompleted(nextCompleted);
     storage.saveProgress({ completed: nextCompleted, updatedAt: new Date().toISOString() });
-    setSessionHistory((current) => [finalized, ...current.filter((item) => item.id !== finalized.id)]);
+    setSessionHistory((current) => [
+      finalized,
+      ...current.filter((item) => item.id !== finalized.id),
+    ]);
     if (user && accessStatus === "active") {
       void saveCompletedSession(user.id, finalized).catch((error) =>
         console.error("[Cloud] Falha ao salvar sessão:", error),
@@ -400,11 +459,14 @@ function WorkoutPage() {
             ex={ex}
             done={!!completed[dayKey(ex)]}
             onToggle={() => toggle(ex)}
-            onSwap={() => swap(ex)}
+            onSwap={() => void swap(ex)}
+            replacementLoading={replacementLoadingId === ex.exerciseId}
             onOpen={() => setOpenDetail(ex)}
-            performance={currentSession?.exercises.find(
-              (performance) => performance.exerciseId === ex.exerciseId,
-            )?.sets}
+            performance={
+              currentSession?.exercises.find(
+                (performance) => performance.exerciseId === ex.exerciseId,
+              )?.sets
+            }
             onSetUpdate={(setNumber, patch) => updateSet(ex.exerciseId, setNumber, patch)}
           />
         ))}
@@ -456,7 +518,9 @@ function WorkoutPage() {
         <div className="mb-6 rounded-2xl border border-border bg-card p-4 text-sm">
           <strong>Considerações do seu perfil</strong>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-            {plan.personalConsiderations.map((item) => <li key={item}>{item}</li>)}
+            {plan.personalConsiderations.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -467,7 +531,8 @@ function WorkoutPage() {
             <div>
               <h2 className="font-bold">Seu ciclo de {plan.program.durationWeeks} semanas</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Progressão dupla: primeiro aumente repetições com boa técnica; depois aumente a carga.
+                Progressão dupla: primeiro aumente repetições com boa técnica; depois aumente a
+                carga.
               </p>
             </div>
             <span className="rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
@@ -476,7 +541,10 @@ function WorkoutPage() {
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {plan.program.weeklyGuidance.map((guidance, index) => (
-              <div key={guidance} className="rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground">
+              <div
+                key={guidance}
+                className="rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground"
+              >
                 <strong className="text-foreground">Semana {index + 1}</strong>
                 <p className="mt-1">{guidance.replace(/^Semana \d+:\s*/, "")}</p>
               </div>
@@ -541,6 +609,7 @@ function ExerciseCard({
   onOpen,
   performance,
   onSetUpdate,
+  replacementLoading,
 }: {
   ex: WorkoutExercise;
   done: boolean;
@@ -549,6 +618,7 @@ function ExerciseCard({
   onOpen: () => void;
   performance?: WorkoutSetPerformance[];
   onSetUpdate: (setNumber: number, patch: Partial<WorkoutSetPerformance>) => void;
+  replacementLoading: boolean;
 }) {
   return (
     <div
@@ -607,15 +677,15 @@ function ExerciseCard({
             <button
               type="button"
               onClick={onSwap}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+              disabled={replacementLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent disabled:cursor-wait disabled:opacity-60"
             >
-              <Repeat className="h-3.5 w-3.5" /> Trocar exercício
+              <Repeat className={`h-3.5 w-3.5 ${replacementLoading ? "animate-spin" : ""}`} />
+              {replacementLoading ? "Buscando opções..." : "Trocar exercício"}
             </button>
             <RestTimer seconds={ex.restSeconds} />
           </div>
-          {performance && (
-            <SetLogger exercise={ex} sets={performance} onUpdate={onSetUpdate} />
-          )}
+          {performance && <SetLogger exercise={ex} sets={performance} onUpdate={onSetUpdate} />}
         </div>
       </div>
     </div>
@@ -635,22 +705,68 @@ function ReplacementDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6" onClick={(event) => event.stopPropagation()}>
+      <div
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-3">
-          <div><p className="text-xs text-muted-foreground">Substituir</p><h2 className="text-xl font-bold">{current.namePt}</h2></div>
-          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">Fechar</button>
+          <div>
+            <p className="text-xs text-muted-foreground">Substituir</p>
+            <h2 className="text-xl font-bold">{translateExerciseName(current.originalName)}</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-sm">
+            Fechar
+          </button>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">Estas opções respeitam o mesmo grupo muscular, seus equipamentos e as limitações informadas.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Estas opções respeitam o mesmo grupo muscular, seus equipamentos e as limitações
+          informadas.
+        </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {options.map((exercise) => (
-            <button key={exercise.exerciseId} onClick={() => onChoose(exercise)} className="overflow-hidden rounded-xl border border-border bg-background text-left transition hover:border-brand">
-              <img src={exercise.gifUrl} alt="" className="h-36 w-full bg-muted object-cover" loading="lazy" referrerPolicy="no-referrer" />
-              <span className="block p-3 text-sm font-semibold">{translateExerciseName(exercise.name)}</span>
+            <button
+              key={exercise.exerciseId}
+              onClick={() => onChoose(exercise)}
+              className="overflow-hidden rounded-xl border border-border bg-background text-left transition hover:border-brand"
+            >
+              <ReplacementGif exercise={exercise} />
+              <span className="block p-3 text-sm font-semibold">
+                {translateExerciseName(exercise.name)}
+              </span>
             </button>
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function ReplacementGif({ exercise }: { exercise: Exercise }) {
+  const candidates = exerciseGifCandidates(exercise);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [exercise.exerciseId, exercise.gifUrl]);
+
+  if (candidateIndex >= candidates.length) {
+    return (
+      <div className="flex h-36 items-center justify-center bg-muted p-3 text-center text-xs text-muted-foreground">
+        Demonstração indisponível
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={candidates[candidateIndex]}
+      alt={`Demonstração de ${translateExerciseName(exercise.name)}`}
+      className="h-36 w-full bg-muted object-cover"
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setCandidateIndex((index) => index + 1)}
+    />
   );
 }
 
@@ -667,11 +783,18 @@ function SetLogger({
   return (
     <div className="pointer-events-auto mt-4 rounded-xl border border-border bg-background p-3">
       <div className="grid grid-cols-[38px_1fr_1fr_1fr_34px] gap-2 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <span>Série</span><span>Carga kg</span><span>Reps</span><span>RIR</span><span>Feita</span>
+        <span>Série</span>
+        <span>Carga kg</span>
+        <span>Reps</span>
+        <span>RIR</span>
+        <span>Feita</span>
       </div>
       <div className="mt-2 grid gap-2">
         {sets.map((set) => (
-          <div key={set.setNumber} className="grid grid-cols-[38px_1fr_1fr_1fr_34px] items-center gap-2">
+          <div
+            key={set.setNumber}
+            className="grid grid-cols-[38px_1fr_1fr_1fr_34px] items-center gap-2"
+          >
             <strong className="text-center text-xs">{set.setNumber}</strong>
             <input
               type="number"
@@ -680,7 +803,11 @@ function SetLogger({
               inputMode="decimal"
               aria-label={`Carga da série ${set.setNumber}`}
               value={set.weightKg ?? ""}
-              onChange={(event) => onUpdate(set.setNumber, { weightKg: event.target.value === "" ? undefined : Number(event.target.value) })}
+              onChange={(event) =>
+                onUpdate(set.setNumber, {
+                  weightKg: event.target.value === "" ? undefined : Number(event.target.value),
+                })
+              }
               className="min-w-0 rounded-md border border-border bg-card px-2 py-1.5 text-center text-xs"
             />
             <input
@@ -689,7 +816,11 @@ function SetLogger({
               inputMode="numeric"
               aria-label={`Repetições da série ${set.setNumber}`}
               value={set.repetitions ?? ""}
-              onChange={(event) => onUpdate(set.setNumber, { repetitions: event.target.value === "" ? undefined : Number(event.target.value) })}
+              onChange={(event) =>
+                onUpdate(set.setNumber, {
+                  repetitions: event.target.value === "" ? undefined : Number(event.target.value),
+                })
+              }
               className="min-w-0 rounded-md border border-border bg-card px-2 py-1.5 text-center text-xs"
             />
             <input
@@ -699,7 +830,11 @@ function SetLogger({
               inputMode="numeric"
               aria-label={`Repetições em reserva da série ${set.setNumber}`}
               value={set.rir ?? ""}
-              onChange={(event) => onUpdate(set.setNumber, { rir: event.target.value === "" ? undefined : Number(event.target.value) })}
+              onChange={(event) =>
+                onUpdate(set.setNumber, {
+                  rir: event.target.value === "" ? undefined : Number(event.target.value),
+                })
+              }
               className="min-w-0 rounded-md border border-border bg-card px-2 py-1.5 text-center text-xs"
             />
             <input
@@ -818,7 +953,9 @@ function ExerciseDetails({ ex, onClose }: { ex: WorkoutExercise; onClose: () => 
           <div className="mt-4">
             <div className="text-sm font-semibold">Aquecimento específico</div>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              {ex.warmup.map((item) => <li key={item}>{item}</li>)}
+              {ex.warmup.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </div>
         )}
@@ -826,7 +963,9 @@ function ExerciseDetails({ ex, onClose }: { ex: WorkoutExercise; onClose: () => 
           <div className="mt-4">
             <div className="text-sm font-semibold">Pontos de execução</div>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-              {ex.coachingCues.map((item) => <li key={item}>{item}</li>)}
+              {ex.coachingCues.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </div>
         )}
@@ -856,7 +995,8 @@ function ExerciseDetails({ ex, onClose }: { ex: WorkoutExercise; onClose: () => 
         <div className="mt-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
           <strong className="text-foreground">Como progredir:</strong>{" "}
           {ex.progressionRule || "Comece com uma carga leve e priorize a execução correta."}
-          <br />Nunca treine sob dor articular.
+          <br />
+          Nunca treine sob dor articular.
         </div>
       </div>
     </div>

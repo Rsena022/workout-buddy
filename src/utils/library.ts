@@ -1,5 +1,6 @@
 import type { Exercise } from "@/types";
 import { categoryOf } from "@/data/translations";
+import { commonExerciseScore, isGeneralAudienceExercise } from "@/utils/exerciseSuitability";
 
 // Approximate quotas summing to 350 (uses ExerciseDB coarse bodyParts)
 const QUOTAS: Record<string, number> = {
@@ -17,16 +18,53 @@ const QUOTAS: Record<string, number> = {
 
 // Beginner-friendly keywords: boost common, easy-to-execute movements
 const BEGINNER_KEYWORDS = [
-  "dumbbell", "machine", "cable", "bodyweight", "body weight",
-  "press", "row", "curl", "extension", "raise", "squat", "lunge",
-  "push-up", "push up", "pull-down", "pulldown", "plank", "bridge",
-  "crunch", "sit-up", "sit up", "leg press", "chest press", "shoulder press",
-  "goblet", "hip thrust", "calf raise", "lateral raise", "front raise",
+  "dumbbell",
+  "machine",
+  "cable",
+  "bodyweight",
+  "body weight",
+  "press",
+  "row",
+  "curl",
+  "extension",
+  "raise",
+  "squat",
+  "lunge",
+  "push-up",
+  "push up",
+  "pull-down",
+  "pulldown",
+  "plank",
+  "bridge",
+  "crunch",
+  "sit-up",
+  "sit up",
+  "leg press",
+  "chest press",
+  "shoulder press",
+  "goblet",
+  "hip thrust",
+  "calf raise",
+  "lateral raise",
+  "front raise",
 ];
 const ADVANCED_KEYWORDS = [
-  "olympic", "snatch", "clean and jerk", "muscle-up", "muscle up",
-  "planche", "pistol", "handstand", "one arm", "one-arm", "one leg",
-  "one-leg", "archer", "reverse hyper", "jefferson", "zercher",
+  "olympic",
+  "snatch",
+  "clean and jerk",
+  "muscle-up",
+  "muscle up",
+  "planche",
+  "pistol",
+  "handstand",
+  "one arm",
+  "one-arm",
+  "one leg",
+  "one-leg",
+  "archer",
+  "reverse hyper",
+  "jefferson",
+  "zercher",
 ];
 
 function normalizeName(s: string) {
@@ -34,7 +72,7 @@ function normalizeName(s: string) {
 }
 
 function scoreExercise(e: Exercise): number {
-  let s = 0;
+  let s = commonExerciseScore(e);
   if (e.gifUrl) s += 3;
   if (e.instructions && e.instructions.length >= 3) s += 2;
   if (e.equipments?.includes("body weight")) s += 2;
@@ -54,6 +92,7 @@ export function selectExerciseLibrary(exercises: Exercise[], limit = 150): Exerc
   const seenNames = new Set<string>();
   for (const e of exercises) {
     if (!e.exerciseId || !e.name || !e.gifUrl) continue;
+    if (!isGeneralAudienceExercise(e)) continue;
     if (byId.has(e.exerciseId)) continue;
     const nn = normalizeName(e.name);
     if (seenNames.has(nn)) continue;
@@ -97,7 +136,9 @@ export function selectExerciseLibrary(exercises: Exercise[], limit = 150): Exerc
   if (picked.length < limit) {
     const remaining = valid
       .filter((e) => !pickedIds.has(e.exerciseId))
-      .sort((a, b) => scoreExercise(b) - scoreExercise(a) || a.exerciseId.localeCompare(b.exerciseId));
+      .sort(
+        (a, b) => scoreExercise(b) - scoreExercise(a) || a.exerciseId.localeCompare(b.exerciseId),
+      );
     for (const e of remaining) {
       if (picked.length >= limit) break;
       picked.push(e);

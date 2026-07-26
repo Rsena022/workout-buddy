@@ -6,6 +6,11 @@ import {
   equipmentPt,
   translateMuscle,
 } from "@/data/translations";
+import {
+  commonExerciseScore,
+  isGeneralAudienceExercise,
+  WORKOUT_CURATION_VERSION,
+} from "@/utils/exerciseSuitability";
 
 // Movement pattern by simple heuristic on name
 function movementPattern(name: string, category: string): string {
@@ -204,7 +209,7 @@ function beginnerFriendlyScore(exercise: Exercise, profile?: UserProfile): numbe
   )
     score += 4;
   if (/(press|row|pulldown|curl|extension|raise|squat|bridge|crunch|plank)/.test(name)) score += 3;
-  if (/(machine|supported|seated|lying)/.test(name)) score += 2;
+  if (/(machine|supported|seated)/.test(name)) score += 2;
   if (
     /(olympic|snatch|clean|jerk|muscle[- ]?up|handstand|planche|pistol|one[- ]?arm|one[- ]?leg|archer|impossible)/.test(
       name,
@@ -212,7 +217,7 @@ function beginnerFriendlyScore(exercise: Exercise, profile?: UserProfile): numbe
   )
     score -= 20;
   if (profile && profile.age >= 60) {
-    if (/(machine|supported|seated|lying)/.test(name)) score += 4;
+    if (/(machine|supported|seated)/.test(name)) score += 4;
     if (/(jump|burpee|box jump|depth jump)/.test(name)) score -= 12;
   }
   if (profile?.trainingStyle === "machines") {
@@ -227,7 +232,7 @@ function beginnerFriendlyScore(exercise: Exercise, profile?: UserProfile): numbe
     if (equipments.includes("body weight")) score += 8;
     else score -= 2;
   }
-  if (profile?.trainingStyle === "guided" && /(machine|supported|seated|lying)/.test(name)) score += 6;
+  if (profile?.trainingStyle === "guided" && /(machine|supported|seated)/.test(name)) score += 6;
   return score;
 }
 
@@ -242,7 +247,10 @@ function coachingCuesFor(pattern: string): string[] {
     return ["Inicie aproximando as escápulas.", "Evite usar impulso do tronco."];
   if (pattern === "Core")
     return ["Mantenha o abdômen ativo.", "Interrompa antes de perder a posição da coluna."];
-  return ["Use amplitude confortável e controlada.", "Interrompa a série se a técnica se deteriorar."];
+  return [
+    "Use amplitude confortável e controlada.",
+    "Interrompa a série se a técnica se deteriorar.",
+  ];
 }
 
 function progressionRuleFor(repetitions: string, targetRir: number): string {
@@ -286,7 +294,9 @@ function toWorkoutExercise(
     warmup: compound
       ? [
           "1 série leve de 10 a 12 repetições para praticar o movimento.",
-          ...(beginner ? [] : ["1 série intermediária de 6 a 8 repetições antes da carga de trabalho."]),
+          ...(beginner
+            ? []
+            : ["1 série intermediária de 6 a 8 repetições antes da carga de trabalho."]),
         ]
       : [],
     coachingCues: coachingCuesFor(pattern),
@@ -298,6 +308,7 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   const beginner = isBeginnerExperience(profile.experience);
   const filtered = library.filter(
     (e) =>
+      isGeneralAudienceExercise(e) &&
       equipmentAllowed(e, profile) &&
       limitationAllows(e, profile) &&
       dislikedFilter(e, profile) &&
@@ -313,9 +324,12 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   for (const c of Object.keys(byCat)) {
     byCat[c].sort((a, b) => {
       if (beginner) {
-        const beginnerDifference = beginnerFriendlyScore(b, profile) - beginnerFriendlyScore(a, profile);
+        const beginnerDifference =
+          beginnerFriendlyScore(b, profile) - beginnerFriendlyScore(a, profile);
         if (beginnerDifference !== 0) return beginnerDifference;
       }
+      const commonDifference = commonExerciseScore(b) - commonExerciseScore(a);
+      if (commonDifference !== 0) return commonDifference;
       const cd = Number(isCompound(b)) - Number(isCompound(a));
       if (cd !== 0) return cd;
       return a.exerciseId.localeCompare(b.exerciseId);
@@ -420,7 +434,9 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
       "Como sua rotina atual é mais sedentária, comece com intensidade moderada e valorize a recuperação entre as sessões.",
     );
   if (profile.additionalNotes?.trim())
-    personalConsiderations.push(`Observação informada no questionário: ${profile.additionalNotes.trim()}`);
+    personalConsiderations.push(
+      `Observação informada no questionário: ${profile.additionalNotes.trim()}`,
+    );
 
   const cardio =
     profile.includeCardio === "yes" ||
@@ -450,6 +466,7 @@ export function generateWorkoutPlan(profile: UserProfile, library: Exercise[]): 
   return {
     id: `plan-${Date.now()}`,
     createdAt: new Date().toISOString(),
+    curationVersion: WORKOUT_CURATION_VERSION,
     profile,
     profileSummary: summary,
     division: division.map((d) => d.name).join(" • "),
@@ -522,6 +539,7 @@ export function replacementCandidates(
   return library
     .filter(
       (e) =>
+        isGeneralAudienceExercise(e) &&
         equipmentAllowed(e, plan.profile) &&
         limitationAllows(e, plan.profile) &&
         dislikedFilter(e, plan.profile) &&
@@ -536,6 +554,7 @@ export function replacementCandidates(
     .sort(
       (a, b) =>
         beginnerFriendlyScore(b, plan.profile) - beginnerFriendlyScore(a, plan.profile) ||
+        commonExerciseScore(b) - commonExerciseScore(a) ||
         a.exerciseId.localeCompare(b.exerciseId),
     )
     .slice(0, limit);

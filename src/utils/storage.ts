@@ -9,14 +9,30 @@ import type {
 } from "@/types";
 import { emptyPerformanceSets } from "@/utils/progression";
 
-const KEY = "forjar-v1";
-const CURRENT_VERSION = 1;
-const EXERCISE_LIBRARY_VERSION = 2;
+const LEGACY_KEY = "forjar-v1";
+const USER_KEY_PREFIX = "forjar-v2:user:";
+const ANONYMOUS_KEY = "forjar-v2:anonymous";
+const LIBRARY_KEY = "forjar-v2:exercise-library";
+const RAW_LIBRARY_KEY = "forjar-v2:exercise-library-progress";
+const CURRENT_VERSION = 2;
+const EXERCISE_LIBRARY_VERSION = 5;
+
+interface RawLibraryProgress {
+  exercises: Exercise[];
+  nextCursor?: string;
+  complete: boolean;
+}
+
+let currentUserId: string | null = null;
+
+function dataKey() {
+  return currentUserId ? `${USER_KEY_PREFIX}${currentUserId}` : ANONYMOUS_KEY;
+}
 
 function read(): StoredData {
   if (typeof window === "undefined") return { version: CURRENT_VERSION };
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(dataKey());
     if (!raw) return { version: CURRENT_VERSION };
     const parsed = JSON.parse(raw) as StoredData;
     if (parsed.version !== CURRENT_VERSION) return { version: CURRENT_VERSION };
@@ -28,10 +44,13 @@ function read(): StoredData {
 
 function write(data: StoredData) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify(data));
+  localStorage.setItem(dataKey(), JSON.stringify(data));
 }
 
 export const storage = {
+  setUserScope(userId?: string | null) {
+    currentUserId = userId || null;
+  },
   getProfile(): UserProfile | undefined {
     return read().profile;
   },
@@ -90,32 +109,87 @@ export const storage = {
     const completed: WorkoutSession = {
       ...session,
       completedAt: completedAt.toISOString(),
-      durationSeconds: Math.max(0, Math.round((completedAt.getTime() - startedAt.getTime()) / 1000)),
+      durationSeconds: Math.max(
+        0,
+        Math.round((completedAt.getTime() - startedAt.getTime()) / 1000),
+      ),
     };
-    const sessions = [completed, ...(data.sessions || []).filter((item) => item.id !== completed.id)].slice(
-      0,
-      200,
-    );
+    const sessions = [
+      completed,
+      ...(data.sessions || []).filter((item) => item.id !== completed.id),
+    ].slice(0, 200);
     const next = { ...data, sessions };
     delete next.activeSession;
     write(next);
     return completed;
   },
   getLibrary(): Exercise[] | undefined {
-    const d = read();
-    if (!d.exerciseLibrary || !d.libraryFetchedAt) return undefined;
-    if (d.exerciseLibraryVersion !== EXERCISE_LIBRARY_VERSION) return undefined;
-    return d.exerciseLibrary;
+    if (typeof window === "undefined") return undefined;
+    try {
+      const raw = localStorage.getItem(LIBRARY_KEY);
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw) as Pick<
+        StoredData,
+        "exerciseLibrary" | "libraryFetchedAt" | "exerciseLibraryVersion"
+      >;
+      if (!parsed.exerciseLibrary || !parsed.libraryFetchedAt) return undefined;
+      if (parsed.exerciseLibraryVersion !== EXERCISE_LIBRARY_VERSION) return undefined;
+      return parsed.exerciseLibrary;
+    } catch {
+      return undefined;
+    }
   },
   saveLibrary(exerciseLibrary: Exercise[]) {
-    write({
-      ...read(),
-      exerciseLibrary,
-      libraryFetchedAt: new Date().toISOString(),
-      exerciseLibraryVersion: EXERCISE_LIBRARY_VERSION,
-    });
+    if (typeof window === "undefined") return;
+    localStorage.setItem(
+      LIBRARY_KEY,
+      JSON.stringify({
+        exerciseLibrary,
+        libraryFetchedAt: new Date().toISOString(),
+        exerciseLibraryVersion: EXERCISE_LIBRARY_VERSION,
+      }),
+    );
+  },
+  getRawLibraryProgress(): RawLibraryProgress | undefined {
+    if (typeof window === "undefined") return undefined;
+    try {
+      const raw = localStorage.getItem(RAW_LIBRARY_KEY);
+      if (!raw) return undefined;
+      const parsed = JSON.parse(raw) as RawLibraryProgress & {
+        exerciseLibraryVersion?: number;
+      };
+      if (parsed.exerciseLibraryVersion !== EXERCISE_LIBRARY_VERSION) return undefined;
+      if (!Array.isArray(parsed.exercises)) return undefined;
+      return {
+        exercises: parsed.exercises,
+        nextCursor: parsed.nextCursor,
+        complete: parsed.complete === true,
+      };
+    } catch {
+      return undefined;
+    }
+  },
+  saveRawLibraryProgress(progress: RawLibraryProgress) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        RAW_LIBRARY_KEY,
+        JSON.stringify({
+          ...progress,
+          exerciseLibraryVersion: EXERCISE_LIBRARY_VERSION,
+        }),
+      );
+    } catch (error) {
+      console.warn("[ExerciseDB] Não foi possível salvar o progresso bruto:", error);
+    }
+  },
+  clearRawLibraryProgress() {
+    if (typeof window !== "undefined") localStorage.removeItem(RAW_LIBRARY_KEY);
   },
   clearAll() {
-    if (typeof window !== "undefined") localStorage.removeItem(KEY);
+    if (typeof window !== "undefined") localStorage.removeItem(dataKey());
+  },
+  removeLegacyData() {
+    if (typeof window !== "undefined") localStorage.removeItem(LEGACY_KEY);
   },
 };
