@@ -188,6 +188,12 @@ function SiteHeader() {
             Meu treino
           </Link>
           <Link
+            to="/macro-calculator"
+            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground md:block"
+          >
+            Nutrição
+          </Link>
+          <Link
             to="/support"
             className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground lg:block"
           >
