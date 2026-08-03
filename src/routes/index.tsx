@@ -259,12 +259,13 @@ function Home() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-8">
+                <div className="mt-8 flex flex-wrap items-center gap-3">
                   <Link
-                    to="/quiz"
+                    to="/macro-calculator"
                     className="inline-flex items-center gap-2 rounded-2xl btn-brand px-6 py-3.5 text-sm font-bold shadow-lg shadow-brand/20 transition-transform hover:scale-[1.02]"
                   >
-                    <span>Garantir acesso completo no checkout</span>
+                    <Apple className="h-4 w-4" />
+                    <span>Acessar Calculadora de Nutrição</span>
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </div>

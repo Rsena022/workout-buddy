@@ -176,22 +176,18 @@ function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Link
-            to="/"
-            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground sm:block"
-          >
-            Início
-          </Link>
-          <Link
             to="/workout"
-            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground md:block"
+            className="rounded-md px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
-            Meu treino
+            <Dumbbell className="h-3.5 w-3.5 text-brand" />
+            <span className="hidden xs:inline">Meu treino</span>
           </Link>
           <Link
             to="/macro-calculator"
-            className="hidden rounded-md px-3 py-2 text-muted-foreground hover:text-foreground md:block"
+            className="rounded-md px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
-            Nutrição
+            <Apple className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Nutrição</span>
           </Link>
           <Link
             to="/support"
@@ -205,7 +201,7 @@ function SiteHeader() {
               type="button"
               onClick={() => void signOut()}
               title={user.email || "Sair"}
-              className="ml-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-semibold"
+              className="ml-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs font-semibold"
             >
               <UserRound className="h-3.5 w-3.5 text-brand" />
               <span className="hidden sm:inline">{accessStatus === "active" ? "Minha conta" : "Conta"}</span>
@@ -219,8 +215,8 @@ function SiteHeader() {
               Entrar
             </Link>
           )}
-          <Link to="/quiz" className="ml-2 rounded-md btn-brand px-4 py-2 font-semibold">
-            Montar treino
+          <Link to="/quiz" className="ml-1 rounded-md btn-brand px-3 py-1.5 text-xs sm:text-sm font-semibold">
+            Quiz
           </Link>
         </nav>
       </div>

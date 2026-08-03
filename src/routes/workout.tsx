@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
+  Apple,
   CheckCircle2,
   Circle,
   Repeat,
@@ -377,6 +378,12 @@ function WorkoutPage() {
           <p className="mt-1 text-xs text-muted-foreground">Divisão: {plan.division}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            to="/macro-calculator"
+            className="inline-flex items-center gap-2 rounded-lg border border-brand/40 bg-brand/10 text-brand px-4 py-2 text-sm font-semibold hover:bg-brand/20 transition"
+          >
+            <Apple className="h-4 w-4" /> Nutrição & Macros
+          </Link>
           <button
             onClick={downloadSpreadsheet}
             className="inline-flex items-center gap-2 rounded-lg btn-brand px-4 py-2 text-sm font-semibold"
