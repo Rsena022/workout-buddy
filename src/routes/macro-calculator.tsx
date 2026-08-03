@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { storage } from "@/utils/storage";
+import { PaidAccessGate } from "@/components/paid-access-gate";
 
 export const Route = createFileRoute("/macro-calculator")({
   head: () => ({
@@ -29,8 +30,16 @@ export const Route = createFileRoute("/macro-calculator")({
       },
     ],
   }),
-  component: MacroCalculatorPage,
+  component: ProtectedMacroCalculatorPage,
 });
+
+function ProtectedMacroCalculatorPage() {
+  return (
+    <PaidAccessGate>
+      <MacroCalculatorPage />
+    </PaidAccessGate>
+  );
+}
 
 type Gender = "male" | "female";
 type ActivityLevel = "sedentary" | "light" | "moderate" | "heavy" | "extreme";

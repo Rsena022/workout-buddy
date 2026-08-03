@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
+  Apple,
   ArrowRight,
   CheckCircle2,
   ChevronRight,
   ClipboardList,
   Dumbbell,
   Flame,
+  PieChart,
   Play,
   ShieldCheck,
   Sparkles,
@@ -15,6 +17,7 @@ import {
   Timer,
   TrendingUp,
   Users,
+  Utensils,
   Zap,
 } from "lucide-react";
 
@@ -220,6 +223,100 @@ function Home() {
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{b.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Seção de Benefício Exclusivo: Módulo de Nutrição */}
+      <section className="relative py-16 border-t border-border/50 bg-gradient-to-b from-brand/5 via-card/30 to-background">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="rounded-3xl border border-brand/30 bg-card/80 p-8 shadow-2xl backdrop-blur-xl md:p-12">
+            <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
+              <div className="lg:col-span-7">
+                <div className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/15 px-3.5 py-1.5 text-xs font-bold text-brand uppercase tracking-wider">
+                  <Utensils className="h-3.5 w-3.5" />
+                  <span>Benefício Exclusivo para Alunos</span>
+                </div>
+                <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">
+                  Calculadora Científica de{" "}
+                  <span className="bg-gradient-to-r from-brand via-brand/90 to-emerald-400 bg-clip-text text-transparent">
+                    Macronutrientes & Dieta
+                  </span>
+                </h2>
+                <p className="mt-4 text-sm sm:text-base text-muted-foreground leading-relaxed">
+                  Treinar sem a nutrição correta é apenas metade do caminho. Além da sua ficha personalizada de treinos, como assinante do Forjar você recebe acesso exclusivo à nossa **Calculadora Científica de Nutrição**.
+                </p>
+                <div className="mt-6 grid gap-3 text-xs sm:text-sm">
+                  {[
+                    "Meta exata de Proteínas (2.0g a 2.2g/kg) ajustada para seu peso e objetivo",
+                    "Cálculo de Carboidratos e Gorduras com barras de progresso visuais",
+                    "Sugestão de divisão automática em 4 refeições diárias",
+                    "Guia com os melhores alimentos para hipertrofia ou emagrecimento",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2.5">
+                      <CheckCircle2 className="h-4 w-4 text-brand shrink-0" />
+                      <span className="text-foreground font-medium">{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-8">
+                  <Link
+                    to="/quiz"
+                    className="inline-flex items-center gap-2 rounded-2xl btn-brand px-6 py-3.5 text-sm font-bold shadow-lg shadow-brand/20 transition-transform hover:scale-[1.02]"
+                  >
+                    <span>Garantir acesso completo no checkout</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Visual Card da Nutrição */}
+              <div className="lg:col-span-5">
+                <div className="rounded-2xl border border-border/80 bg-background/80 p-5 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Apple className="h-4 w-4 text-brand" />
+                      <span className="text-xs font-bold text-foreground">Metas de Macronutrientes</span>
+                    </div>
+                    <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold text-brand">
+                      Painel do Aluno
+                    </span>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+                      <div className="flex justify-between text-xs font-bold text-rose-400">
+                        <span>Proteínas</span>
+                        <span>160g / dia</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-rose-950/40 overflow-hidden">
+                        <div className="h-full bg-rose-500 rounded-full w-[80%]" />
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+                      <div className="flex justify-between text-xs font-bold text-amber-400">
+                        <span>Carboidratos</span>
+                        <span>240g / dia</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-amber-950/40 overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full w-[65%]" />
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+                      <div className="flex justify-between text-xs font-bold text-emerald-400">
+                        <span>Gorduras Boas</span>
+                        <span>68g / dia</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 rounded-full bg-emerald-950/40 overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full w-[50%]" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
