@@ -211,8 +211,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (error) {
       console.error("[Auth] signInWithOtp error:", error);
-      const msg = typeof error === "string" ? error : error.message || JSON.stringify(error);
-      return msg && msg !== "{}" ? msg : "Erro ao conectar com o serviço de e-mail do Supabase.";
+      const detail = error.message || error.name || (typeof error === "object" ? JSON.stringify(error) : String(error));
+      const code = error.status ? ` [Erro ${error.status}]` : "";
+      return `${detail}${code}`;
     }
     return undefined;
   }

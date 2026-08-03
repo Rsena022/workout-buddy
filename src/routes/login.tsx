@@ -167,25 +167,18 @@ function hasSearchFlag(value: unknown) {
 }
 
 function translateAuthError(rawError: unknown): string {
-  const message =
-    typeof rawError === "string"
-      ? rawError
-      : rawError && typeof rawError === "object" && "message" in rawError && typeof (rawError as { message: unknown }).message === "string"
-        ? (rawError as { message: string }).message
-        : JSON.stringify(rawError);
+  const message = typeof rawError === "string" ? rawError : String(rawError);
+  const normalized = message.toLowerCase();
 
-  const normalized = (message || "").toLowerCase();
-  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
-    return "Muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.";
+  if (normalized.includes("rate limit") || normalized.includes("too many requests") || normalized.includes("once every")) {
+    return "Muitas solicitações em pouco tempo. Aguarde 60 segundos e tente novamente.";
   }
   if (normalized.includes("invalid email")) return "Por favor, informe um e-mail válido.";
   if (normalized.includes("signups not allowed")) {
     return "Novos cadastros por Magic Link precisam estar ativos no Supabase (Authentication -> Providers -> Email -> Allow new users).";
   }
-  if (normalized.includes("error sending magic link") || normalized.includes("smtp")) {
-    return "Erro no envio do e-mail. Verifique se o provedor de e-mail está ativo no Supabase.";
+  if (normalized.includes("redirect url")) {
+    return "A URL de redirecionamento precisa estar cadastrada nas Redirect URLs do Supabase.";
   }
-  return message && message !== "{}" && message !== "[object Object]"
-    ? message
-    : "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
+  return message;
 }
