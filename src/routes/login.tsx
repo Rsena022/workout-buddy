@@ -72,39 +72,14 @@ function LoginPage() {
         return;
       }
 
-      let authenticated = false;
-
-      // Tenta verificar com email_otp (código direto)
-      if (data.email_otp) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          email: targetEmail,
-          token: data.email_otp,
-          type: "email",
-        });
-        if (!otpError) authenticated = true;
-      }
-
-      // Tenta verificar com token_hash (magiclink)
-      if (!authenticated && data.token_hash) {
-        const { error: hashError } = await supabase.auth.verifyOtp({
-          email: targetEmail,
-          token_hash: data.token_hash,
-          type: "magiclink",
-        });
-        if (!hashError) authenticated = true;
-      }
-
-      // Redirecionamento direto de segurança via action_link se necessário
-      if (!authenticated && data.action_link) {
+      // 2. Redirecionar diretamente via action_link do servidor para estabelecer a sessão no Supabase
+      if (data.action_link) {
         window.location.href = data.action_link;
         return;
       }
 
-      if (!authenticated) {
-        setSubmitting(false);
-        setMessage("Não foi possível autenticar o acesso. Tente novamente.");
-        return;
-      }
+      setSubmitting(false);
+      setMessage("Não foi possível autenticar o acesso. Tente novamente.");
 
       // 3. Força atualização do status de acesso e navega para o treino
       await refreshAccess();

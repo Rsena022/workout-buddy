@@ -77,10 +77,14 @@ async function handleBuyerLogin(request: Request) {
     existingUser = newUser.user;
   }
 
-  // 3. Gerar link/token de acesso seguro via Admin API (sem depender de envio de e-mail SMTP)
+  // 3. Gerar link/token de acesso seguro via Admin API com redirecionamento de sessao
+  const siteUrl = (process.env.VITE_PUBLIC_SITE_URL || "https://forjar-treino-personalizado.vercel.app").replace(/\/+$/, "");
   const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
+    options: {
+      redirectTo: `${siteUrl}/login`,
+    },
   });
 
   if (linkError || !linkData.properties?.hashed_token) {
@@ -91,6 +95,8 @@ async function handleBuyerLogin(request: Request) {
   return Response.json({
     success: true,
     email,
+    email_otp: linkData.properties.email_otp,
     token_hash: linkData.properties.hashed_token,
+    action_link: linkData.properties.action_link,
   });
 }
