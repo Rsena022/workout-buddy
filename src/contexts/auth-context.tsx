@@ -32,8 +32,9 @@ function publicSiteUrl() {
   return (siteUrl || DEFAULT_PUBLIC_SITE_URL).replace(/\/+$/, "");
 }
 
-function authRedirectUrl(search: string) {
-  return `${publicSiteUrl()}/login?${search}`;
+function authRedirectUrl(search = "") {
+  const base = `${publicSiteUrl()}/login`;
+  return search ? `${base}?${search}` : base;
 }
 
 interface AuthContextValue {
@@ -41,10 +42,7 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   accessStatus: AccessStatus;
-  signIn: (email: string, password: string) => Promise<string | undefined>;
-  signUp: (name: string, email: string, password: string) => Promise<string | undefined>;
-  requestPasswordReset: (email: string) => Promise<string | undefined>;
-  updatePassword: (password: string) => Promise<string | undefined>;
+  signInWithEmail: (email: string) => Promise<string | undefined>;
   signOut: () => Promise<void>;
   refreshAccess: () => Promise<void>;
 }
@@ -202,39 +200,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [checkAccess, session]);
 
-  async function signIn(email: string, password: string) {
+  async function signInWithEmail(email: string) {
     if (!supabase) return "O sistema de contas ainda não foi configurado.";
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      password,
-    });
-    return error?.message;
-  }
-
-  async function signUp(name: string, email: string, password: string) {
-    if (!supabase) return "O sistema de contas ainda não foi configurado.";
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
       options: {
-        data: { name: name.trim() },
         emailRedirectTo: authRedirectUrl("confirmed=1"),
       },
     });
-    return error?.message;
-  }
-
-  async function requestPasswordReset(email: string) {
-    if (!supabase) return "O sistema de contas ainda não foi configurado.";
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: authRedirectUrl("reset=1"),
-    });
-    return error?.message;
-  }
-
-  async function updatePassword(password: string) {
-    if (!supabase) return "O sistema de contas ainda não foi configurado.";
-    const { error } = await supabase.auth.updateUser({ password });
     return error?.message;
   }
 
@@ -250,10 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       accessStatus,
-      signIn,
-      signUp,
-      requestPasswordReset,
-      updatePassword,
+      signInWithEmail,
       signOut,
       refreshAccess: () =>
         checkAccess(session, {

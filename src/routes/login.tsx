@@ -1,12 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { CheckCircle2, Eye, EyeOff, KeyRound, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { CheckCircle2, LockKeyhole, Mail, Send } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     confirmed: hasSearchFlag(search.confirmed) ? true : undefined,
-    reset: hasSearchFlag(search.reset) ? true : undefined,
   }),
   head: () => ({ meta: [{ title: "Entrar — Forjar" }] }),
   component: LoginPage,
@@ -15,61 +14,33 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const { user, accessStatus, signIn, signUp, requestPasswordReset, updatePassword } = useAuth();
-  const [mode, setMode] = useState<AuthMode>(search.reset ? "reset" : "login");
-  const [name, setName] = useState("");
+  const { user, accessStatus, signInWithEmail } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [sentEmail, setSentEmail] = useState("");
+  const [linkSent, setLinkSent] = useState(false);
   const [message, setMessage] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const resetRequested =
-      search.reset ||
-      (typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("reset") === "1");
-
-    if (resetRequested) setMode("reset");
-  }, [search.reset]);
-
-  useEffect(() => {
-    const resetRequested =
-      mode === "reset" ||
-      (typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).get("reset") === "1");
-
-    if (!resetRequested && user && accessStatus === "active") {
+    if (user && accessStatus === "active") {
       void navigate({ to: "/workout" });
     }
-  }, [user, accessStatus, navigate, mode]);
+  }, [user, accessStatus, navigate]);
 
   useEffect(() => {
     if (search.confirmed) {
-      setMessage("E-mail confirmado com sucesso. Agora entre com sua senha.");
+      setMessage("Acesso confirmado com sucesso!");
     }
   }, [search.confirmed]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!email.trim()) return;
+
     setSubmitting(true);
     setMessage(undefined);
 
-    if (mode === "reset" && password !== passwordConfirmation) {
-      setSubmitting(false);
-      setMessage("As senhas não coincidem.");
-      return;
-    }
-
-    const error =
-      mode === "login"
-        ? await signIn(email, password)
-        : mode === "signup"
-          ? await signUp(name, email, password)
-          : mode === "forgot"
-            ? await requestPasswordReset(email)
-            : await updatePassword(password);
+    const error = await signInWithEmail(email);
 
     setSubmitting(false);
     if (error) {
@@ -77,29 +48,9 @@ function LoginPage() {
       return;
     }
 
-    if (mode === "signup") {
-      setMessage("Conta criada. Confira seu e-mail para confirmar o acesso e depois entre.");
-      changeMode("login", false);
-    } else if (mode === "forgot") {
-      setMessage(
-        "Enviamos as instruções de recuperação. Confira também as pastas Spam e Promoções.",
-      );
-    } else if (mode === "reset") {
-      setMessage("Senha atualizada com sucesso. Você já pode continuar no Forjar.");
-      changeMode("login", false);
-    }
+    setSentEmail(email.trim());
+    setLinkSent(true);
   }
-
-  function changeMode(nextMode: AuthMode, clearMessage = true) {
-    setMode(nextMode);
-    setPassword("");
-    setPasswordConfirmation("");
-    setShowPassword(false);
-    if (clearMessage) setMessage(undefined);
-  }
-
-  const isAccountMode = mode === "login" || mode === "signup";
-  const isPasswordMode = mode === "login" || mode === "signup" || mode === "reset";
 
   return (
     <div className="mx-auto grid min-h-[75vh] max-w-5xl items-center gap-10 px-4 py-12 lg:grid-cols-2">
@@ -111,11 +62,11 @@ function LoginPage() {
           Seu treino e sua evolução, sempre com você.
         </h1>
         <p className="mt-4 max-w-lg text-muted-foreground">
-          Entre com o mesmo e-mail utilizado no checkout. Seu plano, cargas e histórico ficarão
-          salvos na sua conta.
+          Entre com o mesmo e-mail utilizado no checkout. Enviamos um link mágico de acesso para entrar instantaneamente sem senha.
         </p>
         <div className="mt-7 grid gap-3 text-sm">
           {[
+            "Acesso rápido via link no e-mail",
             "Treino personalizado salvo na nuvem",
             "Histórico de cargas e repetições",
             "Progressão orientada a cada sessão",
@@ -129,147 +80,70 @@ function LoginPage() {
       </div>
 
       <div className="rounded-3xl border border-border bg-card p-6 shadow-2xl sm:p-8">
-        {isAccountMode ? (
-          <div className="grid grid-cols-2 rounded-xl bg-muted p-1 text-sm font-semibold">
+        {linkSent ? (
+          <div className="py-4 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand">
+              <Send className="h-7 w-7" />
+            </div>
+            <h2 className="mt-4 text-2xl font-bold">Confira seu e-mail</h2>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Enviamos um link mágico de acesso para <br />
+              <strong className="text-foreground">{sentEmail}</strong>.
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Abra seu e-mail e clique no link para acessar sua conta. Caso não encontre em alguns instantes, confira também a pasta de <strong>Spam</strong> ou <strong>Promoções</strong>.
+            </p>
             <button
               type="button"
-              onClick={() => changeMode("login")}
-              className={`rounded-lg px-3 py-2 ${mode === "login" ? "bg-card shadow" : "text-muted-foreground"}`}
+              onClick={() => {
+                setLinkSent(false);
+                setMessage(undefined);
+              }}
+              className="mt-6 w-full rounded-xl border border-border bg-background py-3 text-sm font-semibold hover:bg-muted"
             >
-              Entrar
-            </button>
-            <button
-              type="button"
-              onClick={() => changeMode("signup")}
-              className={`rounded-lg px-3 py-2 ${mode === "signup" ? "bg-card shadow" : "text-muted-foreground"}`}
-            >
-              Criar conta
+              Usar outro e-mail ou reenviar
             </button>
           </div>
         ) : (
           <div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <h2 className="mt-4 text-2xl font-bold">
-              {mode === "forgot" ? "Recuperar senha" : "Crie uma nova senha"}
-            </h2>
+            <h2 className="text-2xl font-bold">Acessar minha conta</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {mode === "forgot"
-                ? "Informe o e-mail usado na compra e enviaremos um link seguro."
-                : "Digite uma nova senha com pelo menos 8 caracteres."}
+              Informe o e-mail cadastrado na compra para receber seu link direto de acesso.
             </p>
+            <form onSubmit={submit} className="mt-6 grid gap-4">
+              <label className="text-sm font-semibold">
+                E-mail da compra
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-background px-3">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    required
+                    type="email"
+                    autoComplete="email"
+                    placeholder="seuemail@exemplo.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    className="min-h-11 w-full bg-transparent outline-none"
+                  />
+                </div>
+              </label>
+
+              {message && (
+                <div className="rounded-xl border border-brand/25 bg-brand/10 p-3 text-sm">
+                  {message}
+                </div>
+              )}
+
+              <button
+                disabled={submitting}
+                className="mt-2 min-h-12 rounded-xl btn-brand px-5 font-semibold disabled:opacity-50"
+              >
+                {submitting ? "Enviando link..." : "Receber link de acesso"}
+              </button>
+            </form>
           </div>
         )}
-        <form onSubmit={submit} className="mt-6 grid gap-4">
-          {mode === "signup" && (
-            <label className="text-sm font-semibold">
-              Nome
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                <UserRound className="h-4 w-4 text-muted-foreground" />
-                <input
-                  required
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="min-h-11 w-full bg-transparent outline-none"
-                />
-              </div>
-            </label>
-          )}
-          {mode !== "reset" && (
-            <label className="text-sm font-semibold">
-              E-mail da compra
-              <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <input
-                  required
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="min-h-11 w-full bg-transparent outline-none"
-                />
-              </div>
-            </label>
-          )}
-          {isPasswordMode && (
-            <label className="text-sm font-semibold">
-              {mode === "reset" ? "Nova senha" : "Senha"}
-              <div className="mt-2 flex items-center rounded-xl border border-border bg-background px-3">
-                <input
-                  required
-                  minLength={8}
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="min-h-11 w-full bg-transparent outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  className="ml-2 rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  title={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </label>
-          )}
-          {mode === "reset" && (
-            <label className="text-sm font-semibold">
-              Confirmar nova senha
-              <input
-                required
-                minLength={8}
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                value={passwordConfirmation}
-                onChange={(event) => setPasswordConfirmation(event.target.value)}
-                className="mt-2 min-h-11 w-full rounded-xl border border-border bg-background px-3 outline-none"
-              />
-            </label>
-          )}
-          {mode === "login" && (
-            <button
-              type="button"
-              onClick={() => changeMode("forgot")}
-              className="-mt-2 justify-self-end text-sm font-semibold text-brand hover:underline"
-            >
-              Esqueci minha senha
-            </button>
-          )}
-          {message && (
-            <div className="rounded-xl border border-brand/25 bg-brand/10 p-3 text-sm">
-              {message}
-            </div>
-          )}
-          <button
-            disabled={submitting}
-            className="mt-2 min-h-12 rounded-xl btn-brand px-5 font-semibold disabled:opacity-50"
-          >
-            {submitting
-              ? "Aguarde..."
-              : mode === "login"
-                ? "Entrar no Forjar"
-                : mode === "signup"
-                  ? "Criar minha conta"
-                  : mode === "forgot"
-                    ? "Enviar link de recuperação"
-                    : "Salvar nova senha"}
-          </button>
-        </form>
-        {!isAccountMode && (
-          <button
-            type="button"
-            onClick={() => changeMode("login")}
-            className="mt-4 w-full text-center text-sm font-semibold text-muted-foreground hover:text-foreground"
-          >
-            Voltar para entrar
-          </button>
-        )}
-        <p className="mt-5 text-center text-xs text-muted-foreground">
+
+        <p className="mt-6 text-center text-xs text-muted-foreground border-t border-border/60 pt-4">
           Dificuldade para acessar?{" "}
           <a className="text-brand underline" href="mailto:forjar.treino@gmail.com">
             Fale com o suporte
@@ -284,10 +158,8 @@ function LoginPage() {
   );
 }
 
-type AuthMode = "login" | "signup" | "forgot" | "reset";
 type LoginSearch = {
   confirmed?: boolean;
-  reset?: boolean;
 };
 
 function hasSearchFlag(value: unknown) {
@@ -296,12 +168,9 @@ function hasSearchFlag(value: unknown) {
 
 function translateAuthError(message: string) {
   const normalized = message.toLowerCase();
-  if (normalized.includes("invalid login credentials")) return "E-mail ou senha inválidos.";
-  if (normalized.includes("already registered")) return "Este e-mail já possui uma conta.";
-  if (normalized.includes("same password"))
-    return "A nova senha precisa ser diferente da senha atual.";
-  if (normalized.includes("expired") || normalized.includes("invalid token"))
-    return "Este link expirou. Solicite uma nova recuperação de senha.";
-  if (normalized.includes("password")) return "Use uma senha com pelo menos 8 caracteres.";
-  return "Não foi possível concluir. Confira os dados e tente novamente.";
+  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
+    return "Muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.";
+  }
+  if (normalized.includes("invalid email")) return "Por favor, informe um e-mail válido.";
+  return "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
 }
