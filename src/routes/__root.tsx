@@ -180,7 +180,7 @@ function SiteHeader() {
             className="rounded-md px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
             <Dumbbell className="h-3.5 w-3.5 text-brand" />
-            <span className="hidden xs:inline">Meu treino</span>
+            <span className="hidden sm:inline">Meu treino</span>
           </Link>
           <Link
             to="/macro-calculator"

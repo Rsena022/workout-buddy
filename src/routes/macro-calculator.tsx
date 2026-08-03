@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useId } from "react";
+import { useState, useId, useEffect } from "react";
 import {
   Apple,
   ArrowRight,
@@ -53,14 +53,22 @@ function MacroCalculatorPage() {
   const heightId = useId();
   const activityLevelId = useId();
 
-  const savedProfile = storage.getProfile();
-
-  const [gender, setGender] = useState<Gender>(savedProfile?.sex === "female" ? "female" : "male");
-  const [age, setAge] = useState<number>(savedProfile?.age || 26);
-  const [weight, setWeight] = useState<number>(savedProfile?.weightKg || 75);
-  const [height, setHeight] = useState<number>(savedProfile?.heightCm || 175);
+  const [gender, setGender] = useState<Gender>("male");
+  const [age, setAge] = useState<number>(26);
+  const [weight, setWeight] = useState<number>(75);
+  const [height, setHeight] = useState<number>(175);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderate");
   const [goal, setGoal] = useState<Goal>("bulk");
+
+  useEffect(() => {
+    const savedProfile = storage.getProfile();
+    if (savedProfile) {
+      if (savedProfile.sex === "female") setGender("female");
+      if (savedProfile.age) setAge(savedProfile.age);
+      if (savedProfile.weightKg) setWeight(savedProfile.weightKg);
+      if (savedProfile.heightCm) setHeight(savedProfile.heightCm);
+    }
+  }, []);
 
   // Cálculos Nutricionais (Fórmula de Mifflin-St Jeor)
   const bmr =
