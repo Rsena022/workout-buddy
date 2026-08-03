@@ -16,6 +16,8 @@ import {
   Zap,
 } from "lucide-react";
 
+import { storage } from "@/utils/storage";
+
 export const Route = createFileRoute("/macro-calculator")({
   head: () => ({
     meta: [
@@ -42,10 +44,12 @@ function MacroCalculatorPage() {
   const heightId = useId();
   const activityLevelId = useId();
 
-  const [gender, setGender] = useState<Gender>("male");
-  const [age, setAge] = useState<number>(26);
-  const [weight, setWeight] = useState<number>(75);
-  const [height, setHeight] = useState<number>(175);
+  const savedProfile = storage.getProfile();
+
+  const [gender, setGender] = useState<Gender>(savedProfile?.sex === "female" ? "female" : "male");
+  const [age, setAge] = useState<number>(savedProfile?.age || 26);
+  const [weight, setWeight] = useState<number>(savedProfile?.weightKg || 75);
+  const [height, setHeight] = useState<number>(savedProfile?.heightCm || 175);
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("moderate");
   const [goal, setGoal] = useState<Goal>("bulk");
 

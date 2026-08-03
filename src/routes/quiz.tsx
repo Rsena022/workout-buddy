@@ -106,7 +106,7 @@ function QuizPage() {
   function set<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setAnswers((a) => ({ ...a, [key]: value }));
   }
-  function setNumber(key: "age", rawValue: string) {
+  function setNumber(key: "age" | "weightKg" | "heightCm", rawValue: string) {
     const digitsOnly = rawValue.replace(/\D/g, "");
     const normalized = digitsOnly.replace(/^0+(?=\d)/, "");
     setAnswers((current) => ({
@@ -133,7 +133,17 @@ function QuizPage() {
       case 1:
         return !!answers.trainingStyle;
       case 2:
-        return typeof answers.age === "number" && answers.age >= 16 && answers.age <= 100;
+        return (
+          typeof answers.age === "number" &&
+          answers.age >= 12 &&
+          answers.age <= 100 &&
+          typeof answers.weightKg === "number" &&
+          answers.weightKg >= 30 &&
+          answers.weightKg <= 250 &&
+          typeof answers.heightCm === "number" &&
+          answers.heightCm >= 100 &&
+          answers.heightCm <= 230
+        );
       case 3:
         return !!answers.activityLevel;
       case 4:
@@ -331,19 +341,57 @@ function QuizPage() {
           </Q>
         )}
         {step === 2 && (
-          <Q title="Qual é a sua idade?">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={answers.age ?? ""}
-              onChange={(e) => setNumber("age", e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-lg"
-              placeholder="ex: 28"
-            />
-            {typeof answers.age === "number" && answers.age >= 16 && answers.age < 18 && (
-              <p className="mt-3 rounded-lg bg-brand/10 p-3 text-sm text-brand">
-                Menor de 18: recomendamos acompanhamento de um responsável e profissional.
+          <Q
+            title="Quais são suas medidas corporais?"
+            subtitle="Esses dados ajudam a calibrar a intensidade do treino e os seus cálculos nutricionais."
+          >
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Idade (anos)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={answers.age ?? ""}
+                  onChange={(e) => setNumber("age", e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-lg font-bold outline-none focus:border-brand"
+                  placeholder="ex: 28"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Peso corporal (kg)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={answers.weightKg ?? ""}
+                  onChange={(e) => setNumber("weightKg", e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-lg font-bold outline-none focus:border-brand"
+                  placeholder="ex: 75"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Altura (cm)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={answers.heightCm ?? ""}
+                  onChange={(e) => setNumber("heightCm", e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-3 text-lg font-bold outline-none focus:border-brand"
+                  placeholder="ex: 175"
+                />
+              </div>
+            </div>
+            {typeof answers.age === "number" && answers.age >= 12 && answers.age < 18 && (
+              <p className="mt-4 rounded-xl bg-brand/10 p-3 text-xs leading-relaxed text-brand">
+                Menor de 18 anos: recomendamos acompanhamento de um responsável e orientação profissional presencial.
               </p>
             )}
           </Q>
