@@ -166,8 +166,15 @@ function hasSearchFlag(value: unknown) {
   return value === "1" || value === 1 || value === true;
 }
 
-function translateAuthError(message: string) {
-  const normalized = message.toLowerCase();
+function translateAuthError(rawError: unknown): string {
+  const message =
+    typeof rawError === "string"
+      ? rawError
+      : rawError && typeof rawError === "object" && "message" in rawError && typeof (rawError as { message: unknown }).message === "string"
+        ? (rawError as { message: string }).message
+        : JSON.stringify(rawError);
+
+  const normalized = (message || "").toLowerCase();
   if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
     return "Muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.";
   }
@@ -175,5 +182,10 @@ function translateAuthError(message: string) {
   if (normalized.includes("signups not allowed")) {
     return "Novos cadastros por Magic Link precisam estar ativos no Supabase (Authentication -> Providers -> Email -> Allow new users).";
   }
-  return message || "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
+  if (normalized.includes("error sending magic link") || normalized.includes("smtp")) {
+    return "Erro no envio do e-mail. Verifique se o provedor de e-mail está ativo no Supabase.";
+  }
+  return message && message !== "{}" && message !== "[object Object]"
+    ? message
+    : "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
 }
