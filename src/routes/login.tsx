@@ -51,10 +51,12 @@ function LoginPage() {
       const data = (await response.json()) as {
         success?: boolean;
         token_hash?: string;
+        email_otp?: string;
+        action_link?: string;
         error?: string;
       };
 
-      if (!response.ok || !data.success || !data.token_hash) {
+      if (!response.ok || !data.success) {
         setSubmitting(false);
         setMessage(
           data.error ||
@@ -70,14 +72,35 @@ function LoginPage() {
         return;
       }
 
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: targetEmail,
-        token_hash: data.token_hash,
-        type: "magiclink",
-      });
+      let authenticated = false;
 
-      if (verifyError) {
-        console.error("[Login] Erro ao autenticar token:", verifyError.message);
+      // Tenta verificar com email_otp (código direto)
+      if (data.email_otp) {
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          email: targetEmail,
+          token: data.email_otp,
+          type: "email",
+        });
+        if (!otpError) authenticated = true;
+      }
+
+      // Tenta verificar com token_hash (magiclink)
+      if (!authenticated && data.token_hash) {
+        const { error: hashError } = await supabase.auth.verifyOtp({
+          email: targetEmail,
+          token_hash: data.token_hash,
+          type: "magiclink",
+        });
+        if (!hashError) authenticated = true;
+      }
+
+      // Redirecionamento direto de segurança via action_link se necessário
+      if (!authenticated && data.action_link) {
+        window.location.href = data.action_link;
+        return;
+      }
+
+      if (!authenticated) {
         setSubmitting(false);
         setMessage("Não foi possível autenticar o acesso. Tente novamente.");
         return;
