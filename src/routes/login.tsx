@@ -172,5 +172,8 @@ function translateAuthError(message: string) {
     return "Muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.";
   }
   if (normalized.includes("invalid email")) return "Por favor, informe um e-mail válido.";
-  return "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
+  if (normalized.includes("signups not allowed")) {
+    return "Novos cadastros por Magic Link precisam estar ativos no Supabase (Authentication -> Providers -> Email -> Allow new users).";
+  }
+  return message || "Não foi possível enviar o link de acesso. Confira o e-mail e tente novamente.";
 }
