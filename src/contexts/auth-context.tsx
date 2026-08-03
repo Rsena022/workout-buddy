@@ -43,6 +43,9 @@ interface AuthContextValue {
   loading: boolean;
   accessStatus: AccessStatus;
   signInWithEmail: (email: string) => Promise<string | undefined>;
+  signIn: (email: string, password: string) => Promise<string | undefined>;
+  signUp: (name: string, email: string, password: string) => Promise<string | undefined>;
+  requestPasswordReset: (email: string) => Promise<string | undefined>;
   signOut: () => Promise<void>;
   refreshAccess: () => Promise<void>;
 }
@@ -103,13 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data, error } = await supabase.rpc("has_active_entitlement");
 
-          // Ignora respostas antigas caso a conta tenha sido trocada.
           if (currentUserIdRef.current !== userId) return;
 
           if (error) {
             console.error("[Auth] Não foi possível validar o acesso:", error.message);
-
-            // Uma falha temporária de rede não deve expulsar quem já foi validado.
             if (accessStatusRef.current !== "active") {
               updateAccessStatus("inactive");
             }
@@ -162,8 +162,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // O Supabase renova o token em segundo plano. Isso não altera a compra
-      // e não deve colocar a interface inteira novamente em carregamento.
       if (event === "TOKEN_REFRESHED") return;
 
       const userChanged = validatedUserIdRef.current !== nextUserId;
@@ -218,6 +216,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return undefined;
   }
 
+  async function signIn(email: string, password: string) {
+    if (!supabase) return "O sistema de contas ainda não foi configurado.";
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    return error?.message;
+  }
+
+  async function signUp(name: string, email: string, password: string) {
+    if (!supabase) return "O sistema de contas ainda não foi configurado.";
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { name: name.trim() },
+        emailRedirectTo: authRedirectUrl("confirmed=1"),
+      },
+    });
+    return error?.message;
+  }
+
+  async function requestPasswordReset(email: string) {
+    if (!supabase) return "O sistema de contas ainda não foi configurado.";
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: authRedirectUrl("reset=1"),
+    });
+    return error?.message;
+  }
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
@@ -231,6 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       accessStatus,
       signInWithEmail,
+      signIn,
+      signUp,
+      requestPasswordReset,
       signOut,
       refreshAccess: () =>
         checkAccess(session, {
